@@ -59,7 +59,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 symbolPropertiesDataBase,
                 algorithm,
                 RegisteredSecurityDataTypesProvider.Null,
-                new SecurityCacheProvider(algorithm.Portfolio));
+                new SecurityCacheProvider(algorithm.Portfolio),
+                algorithm: algorithm);
             algorithm.Securities.SetSecurityService(securityService);
             var dataPermissionManager = new DataPermissionManager();
             var dataManager = new DataManager(feed,
@@ -86,7 +87,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             var startTimeUtc = algorithm.StartDate.ConvertToUtc(TimeZones.NewYork);
             var subscriptionBasedTimeProvider = new SubscriptionFrontierTimeProvider(startTimeUtc, dataManager);
             var timeSliceFactory = new TimeSliceFactory(algorithm.TimeZone);
-            var synchronizer = new SubscriptionSynchronizer(dataManager.UniverseSelection);
+            var synchronizer = new SubscriptionSynchronizer(dataManager.UniverseSelection, new());
             synchronizer.SetTimeProvider(subscriptionBasedTimeProvider);
             synchronizer.SetTimeSliceFactory(timeSliceFactory);
             var totalDataPoints = 0;

@@ -41,8 +41,8 @@ namespace QuantConnect.Algorithm.CSharp
 
             var aapl = QuantConnect.Symbol.Create("AAPL", SecurityType.Equity, Market.USA);
 
-            var contracts = OptionChainProvider.GetOptionContractList(aapl, Time)
-                .OrderBy(symbol => symbol.ID.StrikePrice)
+            var contracts = OptionChain(aapl)
+                .OrderBy(x => x.ID.StrikePrice)
                 .Where(optionContract => optionContract.ID.OptionRight == OptionRight.Call
                     && optionContract.ID.OptionStyle == OptionStyle.American)
                 .Take(2)
@@ -72,7 +72,10 @@ namespace QuantConnect.Algorithm.CSharp
                         throw new RegressionTestException("No configuration for underlying was found!");
                     }
 
-                    if (!Portfolio.Invested)
+                    if (!Portfolio.Invested &&
+                        // This security will be liquidated due to impending split, let's not trade it again after the contract is removed.
+                        // Trying to trade it will make the security to be re-added
+                        Securities[_contract2].IsTradable)
                     {
                         Buy(_contract2, 1);
                     }
@@ -101,12 +104,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 1578;
+        public long DataPoints => 1579;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -142,9 +145,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0"},
             {"Total Fees", "$2.00"},
             {"Estimated Strategy Capacity", "$6200000.00"},
-            {"Lowest Capacity Asset", "AAPL VXBK4QA5EM92|AAPL R735QTJ8XC9X"},
+            {"Lowest Capacity Asset", "AAPL VXBK4QA5IWKM|AAPL R735QTJ8XC9X"},
             {"Portfolio Turnover", "90.27%"},
-            {"OrderListHash", "a111609c2c64554268539b5798e5b31f"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "a332b93ff5e2dfe89258c450a64c7125"}
         };
     }
 }

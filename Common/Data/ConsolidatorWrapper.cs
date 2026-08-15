@@ -14,6 +14,7 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using QuantConnect.Interfaces;
 using QuantConnect.Data.Consolidators;
@@ -48,7 +49,7 @@ namespace QuantConnect.Data
         /// <summary>
         /// Get enqueue time
         /// </summary>
-        public ConsolidatorScanPriority Priority => new (UtcScanTime, _id);
+        public ConsolidatorScanPriority Priority => new(UtcScanTime, _id);
 
         /// <summary>
         /// Creates a new instance
@@ -64,7 +65,6 @@ namespace QuantConnect.Data
             _minimumIncrement = configIncrement < Time.OneSecond ? Time.OneSecond : configIncrement;
 
             _consolidator.DataConsolidated += AdvanceScanTime;
-            AdvanceScanTime();
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace QuantConnect.Data
         /// <summary>
         /// Helper method to set the next scan time
         /// </summary>
-        private void AdvanceScanTime(object _ = null, IBaseData consolidated = null)
+        public void AdvanceScanTime(object _ = null, IBaseData consolidated = null)
         {
             if (consolidated == null && UtcScanTime > _timeKeeper.UtcTime)
             {
@@ -138,8 +138,24 @@ namespace QuantConnect.Data
         }
     }
 
-    internal class ConsolidatorScanPriority : IComparable
+    internal class ConsolidatorScanPriority
     {
+        private sealed class UtcScanTimeIdRelationalComparer : IComparer<ConsolidatorScanPriority>
+        {
+            public int Compare(ConsolidatorScanPriority? x, ConsolidatorScanPriority? y)
+            {
+                if (ReferenceEquals(x, y)) return 0;
+                if (y is null) return 1;
+                if (x is null) return -1;
+                var utcScanTimeComparison = x.UtcScanTime.CompareTo(y.UtcScanTime);
+                if (utcScanTimeComparison != 0) return utcScanTimeComparison;
+                return x.Id.CompareTo(y.Id);
+            }
+        }
+
+        public static IComparer<ConsolidatorScanPriority> Comparer { get; } =
+            new UtcScanTimeIdRelationalComparer();
+
         /// <summary>
         /// The next utc scan time
         /// </summary>
@@ -154,20 +170,6 @@ namespace QuantConnect.Data
         {
             Id = id;
             UtcScanTime = utcScanTime;
-        }
-
-        public int CompareTo(object obj)
-        {
-            if (obj == null) return 1;
-
-            var other = (ConsolidatorScanPriority)obj;
-            var result = UtcScanTime.CompareTo(other.UtcScanTime);
-            if (result == 0)
-            {
-                // if they are the same let's compare Ids too
-                return Id.CompareTo(other.Id);
-            }
-            return result;
         }
     }
 }

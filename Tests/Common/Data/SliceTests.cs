@@ -161,6 +161,36 @@ namespace QuantConnect.Tests.Common.Data
         }
 
         [Test]
+        public void KeyNotFoundMessageNamesKeyAndSuggestsSafeAccess()
+        {
+            var tradeBar = new TradeBar { Symbol = Symbols.SPY, Time = DateTime.Now };
+            var slice = new Slice(DateTime.Now, new[] { tradeBar }, DateTime.Now);
+            try
+            {
+                Messages.SetAlgorithmLanguage(Language.CSharp);
+                var exception = Assert.Throws<KeyNotFoundException>(() => { var data = slice[Symbols.AAPL]; });
+                StringAssert.Contains("'AAPL", exception.Message);
+                StringAssert.Contains("Slice", exception.Message);
+                StringAssert.Contains("data.TryGetValue(symbol, out var value)", exception.Message);
+                StringAssert.Contains("data.ContainsKey(symbol)", exception.Message);
+
+                Messages.SetAlgorithmLanguage(Language.Python);
+                exception = Assert.Throws<KeyNotFoundException>(() => { var data = slice[Symbols.AAPL]; });
+                StringAssert.Contains("data.get(symbol)", exception.Message);
+                StringAssert.Contains("if symbol in data:", exception.Message);
+
+                // DataDictionary subtypes render their friendly generic type name through the same template
+                var dictionary = new DataDictionary<TradeBar>();
+                exception = Assert.Throws<KeyNotFoundException>(() => { var data = dictionary[Symbols.AAPL]; });
+                StringAssert.Contains("DataDictionary<TradeBar>", exception.Message);
+            }
+            finally
+            {
+                Messages.SetAlgorithmLanguage(Language.CSharp);
+            }
+        }
+
+        [Test]
         public void AccessesTradeBarCollection()
         {
             TradeBar tradeBar1 = new TradeBar { Symbol = Symbols.SPY, Time = DateTime.Now };
@@ -428,7 +458,7 @@ def Test(slice):
                 var unlinkedDataAapl = new UnlinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
                 var slice = new Slice(DateTime.Now, new[] { unlinkedDataSpy, unlinkedDataAapl }, DateTime.Now);
 
-                var data = test(new PythonSlice(slice));
+                var data = test(slice);
                 Assert.AreEqual(2, (int)data.Count);
                 Assert.AreEqual(10, (int)data[Symbols.SPY].Value);
                 Assert.AreEqual(11, (int)data[Symbols.AAPL].Value);
@@ -466,7 +496,7 @@ def Test(slice, symbol):
 
                 var slice = new Slice(DateTime.UtcNow, new[] { data1 }, DateTime.UtcNow);
 
-                Assert.AreEqual(new DateTime(2022, 05, 05), (DateTime)test(new PythonSlice(slice), Symbols.SPY));
+                Assert.AreEqual(new DateTime(2022, 05, 05), (DateTime)test(slice, Symbols.SPY));
             }
         }
 
@@ -519,7 +549,7 @@ def Test(slice):
                 var unlinkedDataSpy = new UnlinkedData { Symbol = Symbols.SPY, Time = DateTime.UtcNow, Value = 10 };
                 var slice = new Slice(DateTime.UtcNow, new[] { unlinkedDataSpy, data2, data1 }, DateTime.UtcNow);
 
-                var data = test(new PythonSlice(slice));
+                var data = test(slice);
                 Assert.AreEqual(1, (int)data.Count);
                 Assert.AreEqual(10, (int)data[Symbols.SPY].Value);
             }
@@ -540,7 +570,7 @@ def Test(slice):
                 var unlinkedDataAapl = new UnlinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
                 var slice = new Slice(DateTime.Now, new[] { unlinkedDataAapl }, DateTime.Now);
 
-                var data = test(new PythonSlice(slice)) as PyObject;
+                var data = test(slice) as PyObject;
                 var keyValuePair = data.As<KeyValuePair<Symbol, BaseData>>();
                 Assert.IsNotNull(keyValuePair);
                 Assert.AreEqual(11, keyValuePair.Value.Value);
@@ -566,7 +596,7 @@ def Test(slice):
                 var unlinkedDataAapl = new UnlinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
                 var slice = new Slice(DateTime.Now, new[] { unlinkedDataSpy, unlinkedDataAapl }, DateTime.Now);
 
-                Assert.DoesNotThrow(() => test(new PythonSlice(slice)));
+                Assert.DoesNotThrow(() => test(slice));
             }
         }
 
@@ -589,7 +619,7 @@ def Test(slice):
                 var unlinkedDataAapl = new UnlinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
                 var slice = new Slice(DateTime.Now, new[] { unlinkedDataSpy, unlinkedDataAapl }, DateTime.Now);
 
-                Assert.DoesNotThrow(() => test(new PythonSlice(slice)));
+                Assert.DoesNotThrow(() => test(slice));
             }
         }
 
@@ -611,7 +641,7 @@ def Test(slice):
                 var unlinkedDataAapl = new UnlinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
                 var slice = new Slice(DateTime.Now, new BaseData[] { unlinkedDataSpy, TradeBarAapl, unlinkedDataAapl, TradeBarSpy }, DateTime.Now);
 
-                var data = test(new PythonSlice(slice));
+                var data = test(slice);
                 Assert.AreEqual(2, (int)data.Count);
                 Assert.AreEqual(8, (int)data[Symbols.SPY].Value);
                 Assert.AreEqual(9, (int)data[Symbols.AAPL].Value);
@@ -641,7 +671,7 @@ def Test(slice):
                 var openInterest = new OpenInterest(now, Symbols.AAPL, 33);
                 var slice = new Slice(now, new BaseData[] { unlinkedDataSpy, TradeBarAapl, unlinkedDataAapl, TradeBarSpy, openInterest }, now);
 
-                Assert.DoesNotThrow(() => test(new PythonSlice(slice)));
+                Assert.DoesNotThrow(() => test(slice));
             }
         }
 
@@ -666,7 +696,7 @@ def Test(slice):
                 var unlinkedDataAapl = new UnlinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
                 var slice = new Slice(DateTime.Now, new BaseData[] { unlinkedDataSpy, TradeBarAapl, unlinkedDataAapl, TradeBarSpy }, DateTime.Now);
 
-                Assert.DoesNotThrow(() => test(new PythonSlice(slice)));
+                Assert.DoesNotThrow(() => test(slice));
             }
         }
 
@@ -691,7 +721,7 @@ def Test(slice):
                 var unlinkedDataAapl = new UnlinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
                 var slice = new Slice(DateTime.Now, new BaseData[] { unlinkedDataSpy, TradeBarAapl, unlinkedDataAapl, TradeBarSpy }, DateTime.Now);
 
-                Assert.DoesNotThrow(() => test(new PythonSlice(slice)));
+                Assert.DoesNotThrow(() => test(slice));
             }
         }
 
@@ -719,7 +749,7 @@ def Test(slice):
                 var indexedLinkedDataAapl = new IndexedLinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
                 var slice = new Slice(DateTime.Now, new BaseData[] { indexedLinkedDataSpy, tradeBarAapl, indexedLinkedDataAapl }, DateTime.Now);
 
-                Assert.DoesNotThrow(() => test(new PythonSlice(slice)));
+                Assert.DoesNotThrow(() => test(slice));
             }
         }
 
@@ -747,7 +777,7 @@ def Test(slice):
                 var tradeBarAapl = new TradeBar { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 9 };
                 var slice = new Slice(DateTime.Now, new List<BaseData> { tradeBarAapl }, DateTime.Now);
 
-                Assert.DoesNotThrow(() => test(new PythonSlice(slice)));
+                Assert.DoesNotThrow(() => test(slice));
             }
         }
 
@@ -771,7 +801,7 @@ def Test(slice):
                 var unlinkedDataAapl = new UnlinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
                 var slice = new Slice(DateTime.Now, new[] { unlinkedDataSpy, unlinkedDataAapl }, DateTime.Now);
 
-                Assert.DoesNotThrow(() => test(new PythonSlice(slice)));
+                Assert.DoesNotThrow(() => test(slice));
             }
         }
 
@@ -840,7 +870,7 @@ from AlgorithmImports import *
 def Test(slice):
     slice.clear()").GetAttr("Test");
 
-                Assert.That(() => test(GetPythonSlice()),
+                Assert.That(() => test(GetSlice()),
                     Throws.InstanceOf<ClrBubbledException>().With.InnerException.InstanceOf<InvalidOperationException>(),
                     "Slice is read-only: cannot clear the collection");
             }
@@ -858,7 +888,7 @@ from AlgorithmImports import *
 def Test(slice):
     slice.popitem()").GetAttr("Test");
 
-                Assert.That(() => test(GetPythonSlice()),
+                Assert.That(() => test(GetSlice()),
                     Throws.InstanceOf<ClrBubbledException>().With.InnerException.InstanceOf<NotSupportedException>(),
                     $"Slice is read-only: cannot pop the value for {Symbols.SPY} from the collection");
             }
@@ -876,7 +906,7 @@ from AlgorithmImports import *
 def Test(slice, symbol):
     slice.pop(symbol)").GetAttr("Test");
 
-                Assert.That(() => test(GetPythonSlice(), Symbols.SPY),
+                Assert.That(() => test(GetSlice(), Symbols.SPY),
                     Throws.InstanceOf<ClrBubbledException>().With.InnerException.InstanceOf<InvalidOperationException>(),
                     $"Slice is read-only: cannot pop the value for {Symbols.SPY} from the collection");
             }
@@ -894,7 +924,7 @@ from AlgorithmImports import *
 def Test(slice, symbol, default_value):
     slice.pop(symbol, default_value)").GetAttr("Test");
 
-                Assert.That(() => test(GetPythonSlice(), Symbols.SPY, null),
+                Assert.That(() => test(GetSlice(), Symbols.SPY, null),
                     Throws.InstanceOf<ClrBubbledException>().With.InnerException.InstanceOf<InvalidOperationException>(),
                     $"Slice is read-only: cannot pop the value for {Symbols.SPY} from the collection");
             }
@@ -913,7 +943,7 @@ def Test(slice, symbol):
     item = { symbol: 1 }
     slice.update(item)").GetAttr("Test");
 
-                Assert.That(() => test(GetPythonSlice(), Symbols.SPY),
+                Assert.That(() => test(GetSlice(), Symbols.SPY),
                     Throws.InstanceOf<ClrBubbledException>().With.InnerException.InstanceOf<InvalidOperationException>(),
                     "Slice is read-only: cannot update the collection");
             }
@@ -933,7 +963,7 @@ def Test(slice, symbol, bar):
     slice.Bars.update(item)").GetAttr("Test");
 
                 var expected = new TradeBar();
-                var pythonSlice = GetPythonSlice();
+                var pythonSlice = GetSlice();
                 Assert.DoesNotThrow(() => test(pythonSlice, Symbols.SPY, expected));
                 Assert.AreEqual(expected, pythonSlice.Bars[Symbols.SPY]);
             }
@@ -958,7 +988,7 @@ def Test(slice, symbol):
                 Assert.IsTrue(result);
 
                 result = false;
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice(), Symbols.SPY));
+                Assert.DoesNotThrow(() => result = test(GetSlice(), Symbols.SPY));
                 Assert.IsTrue(result);
             }
         }
@@ -1086,7 +1116,7 @@ def Test(slice, symbol):
     return msg").GetAttr("Test");
 
                 var message = string.Empty;
-                Assert.DoesNotThrow(() => message = test(GetPythonSlice(), Symbols.SPY));
+                Assert.DoesNotThrow(() => message = test(GetSlice(), Symbols.SPY));
 
                 Assert.Ignore(message);
             }
@@ -1111,7 +1141,7 @@ def Test(slice, symbol):
                 Assert.AreEqual(2, result);
 
                 result = -1;
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice(), Symbols.SPY));
+                Assert.DoesNotThrow(() => result = test(GetSlice(), Symbols.SPY));
                 Assert.AreEqual(2, result);
             }
         }
@@ -1130,8 +1160,8 @@ def Test(slice, symbol):
     return ', '.join([f'{k}: {v.Value}' for k,v in copy.items()])").GetAttr("Test");
 
                 var result = string.Empty;
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice(), Symbols.SPY));
-                Assert.AreEqual("SPY R735QTJ8XC9X: 10.0, AAPL R735QTJ8XC9X: 11.0", result);
+                Assert.DoesNotThrow(() => result = test(GetSlice(), Symbols.SPY));
+                Assert.AreEqual("AAPL R735QTJ8XC9X: 11.0, SPY R735QTJ8XC9X: 10.0", result);
             }
         }
 
@@ -1148,8 +1178,8 @@ def Test(slice):
     return ', '.join([f'{k}: {v.Value}' for k,v in slice.items()])").GetAttr("Test");
 
                 var result = string.Empty;
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice()));
-                Assert.AreEqual("SPY R735QTJ8XC9X: 10.0, AAPL R735QTJ8XC9X: 11.0", result);
+                Assert.DoesNotThrow(() => result = test(GetSlice()));
+                Assert.AreEqual("AAPL R735QTJ8XC9X: 11.0, SPY R735QTJ8XC9X: 10.0", result);
             }
         }
 
@@ -1166,7 +1196,7 @@ from AlgorithmImports import *
 def Test(slice):
     return slice.keys()").GetAttr("Test");
 
-                var slice = GetPythonSlice();
+                var slice = GetSlice();
                 var result = new List<Symbol>();
                 Assert.DoesNotThrow(() => result = test(slice));
                 foreach (var key in slice.Keys)
@@ -1188,7 +1218,7 @@ from AlgorithmImports import *
 def Test(slice):
     return slice.values()").GetAttr("Test");
 
-                var slice = GetPythonSlice();
+                var slice = GetSlice();
                 var result = new List<BaseData>();
                 Assert.DoesNotThrow(() => result = test(slice));
                 foreach (var value in slice.Values)
@@ -1212,7 +1242,7 @@ def Test(slice, keys):
     return ', '.join([f'{k}: {v.Value}' for k,v in newDict.items()])").GetAttr("Test");
 
                 var result = string.Empty;
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice(), new[] { Symbols.SPY }));
+                Assert.DoesNotThrow(() => result = test(GetSlice(), new[] { Symbols.SPY }));
                 Assert.AreEqual("SPY R735QTJ8XC9X: 10.0", result);
             }
         }
@@ -1231,7 +1261,7 @@ def Test(slice, keys, default_value):
     return ', '.join([f'{k}: {v.Value}' for k,v in newDict.items()])").GetAttr("Test");
 
                 var result = string.Empty;
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice(), new[] { Symbols.EURUSD }, new Tick()));
+                Assert.DoesNotThrow(() => result = test(GetSlice(), new[] { Symbols.EURUSD }, new Tick()));
                 Assert.AreEqual("EURUSD 8G: 0.0", result);
             }
         }
@@ -1248,10 +1278,10 @@ from AlgorithmImports import *
 def Test(slice, symbol):
     return slice.get(symbol)").GetAttr("Test");
 
-                var pythonSlice = GetPythonSlice();
+                var pythonSlice = GetSlice();
                 dynamic expected = pythonSlice[Symbols.SPY];
                 PyObject result = null;
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice(), Symbols.SPY));
+                Assert.DoesNotThrow(() => result = test(GetSlice(), Symbols.SPY));
                 BaseData actual;
                 Assert.IsTrue(result.TryConvert(out actual));
                 Assert.AreEqual(expected.Symbol, actual.Symbol);
@@ -1271,10 +1301,10 @@ from AlgorithmImports import *
 def Test(slice, symbol, default_value):
     return slice.get(symbol, default_value)").GetAttr("Test");
 
-                var pythonSlice = GetPythonSlice();
+                var pythonSlice = GetSlice();
                 var expected = new QuoteBar { Symbol = Symbols.EURUSD, Time = DateTime.Now, Value = 9 };
                 PyObject result = null;
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice(), Symbols.EURUSD, expected));
+                Assert.DoesNotThrow(() => result = test(GetSlice(), Symbols.EURUSD, expected));
                 BaseData actual;
                 Assert.IsTrue(result.TryConvert(out actual));
                 Assert.AreEqual(expected.Symbol, actual.Symbol);
@@ -1294,7 +1324,7 @@ from AlgorithmImports import *
 def Test(slice, symbol):
     return slice.get(symbol)").GetAttr("Test");
 
-                Assert.IsNull(test(GetPythonSlice(), Symbols.EURUSD));
+                Assert.IsNull(test(GetSlice(), Symbols.EURUSD));
             }
         }
 
@@ -1310,10 +1340,10 @@ from AlgorithmImports import *
 def Test(slice, symbol):
     return slice.setdefault(symbol)").GetAttr("Test");
 
-                var pythonSlice = GetPythonSlice();
+                var pythonSlice = GetSlice();
                 dynamic expected = pythonSlice[Symbols.SPY];
                 PyObject result = null;
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice(), Symbols.SPY));
+                Assert.DoesNotThrow(() => result = test(GetSlice(), Symbols.SPY));
                 BaseData actual;
                 Assert.IsTrue(result.TryConvert(out actual));
                 Assert.AreEqual(expected.Symbol, actual.Symbol);
@@ -1334,12 +1364,12 @@ def Test(slice, symbol, default_value):
     return slice.setdefault(symbol, default_value)").GetAttr("Test");
 
                 var value = new Tick();
-                var pythonSlice = GetPythonSlice();
+                var pythonSlice = GetSlice();
                 dynamic expected = pythonSlice[Symbols.SPY];
                 PyObject result = null;
 
                 // Since SPY is found, no need to set the default. Therefore it does not throw.
-                Assert.DoesNotThrow(() => result = test(GetPythonSlice(), Symbols.SPY, value));
+                Assert.DoesNotThrow(() => result = test(GetSlice(), Symbols.SPY, value));
                 BaseData actual;
                 Assert.IsTrue(result.TryConvert(out actual));
                 Assert.AreEqual(expected.Symbol, actual.Symbol);
@@ -1360,7 +1390,7 @@ def Test(slice, symbol):
     return slice.setdefault(symbol)").GetAttr("Test");
 
                 var symbol = Symbols.EURUSD;
-                Assert.That(() => test(GetPythonSlice(), symbol),
+                Assert.That(() => test(GetSlice(), symbol),
                     Throws.InstanceOf<ClrBubbledException>().With.InnerException.InstanceOf<KeyNotFoundException>(),
                     $"Slice is read-only: cannot set default value to  for {symbol}");
             }
@@ -1387,8 +1417,6 @@ def Test(slice, symbol):
             var indexedLinkedDataAapl = new IndexedLinkedData { Symbol = Symbols.AAPL, Time = DateTime.Now, Value = 11 };
             return new Slice(DateTime.Now, new BaseData[] { indexedLinkedDataSpy, tradeBarAapl, indexedLinkedDataAapl }, DateTime.Now);
         }
-
-        private PythonSlice GetPythonSlice() => new PythonSlice(GetSlice());
 
         public static object[] PushThroughWorksWithDifferentTypesTestCases =
         {

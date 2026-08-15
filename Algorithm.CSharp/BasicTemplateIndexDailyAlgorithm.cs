@@ -70,7 +70,7 @@ namespace QuantConnect.Algorithm.CSharp
             }
 
             var openInterest = Securities[SpxOption].Cache.GetAll<OpenInterest>();
-            if (openInterest.Single().EndTime != new DateTime(2021, 1, 15, 23, 0, 0))
+            if (openInterest.Single().EndTime != new DateTime(2021, 1, 15, 15, 15, 0))
             {
                 throw new ArgumentException($"Unexpected open interest time: {openInterest.Single().EndTime}");
             }
@@ -106,7 +106,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public override long DataPoints => 121;
+        public override long DataPoints => 122;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -126,7 +126,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "11"},
             {"Average Win", "0%"},
             {"Average Loss", "0%"},
-            {"Compounding Annual Return", "621.484%"},
+            {"Compounding Annual Return", "653.545%"},
             {"Drawdown", "0%"},
             {"Expectancy", "0"},
             {"Start Equity", "1000000"},
@@ -134,7 +134,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "8.460%"},
             {"Sharpe Ratio", "9.923"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "93.682%"},
+            {"Probabilistic Sharpe Ratio", "93.605%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
@@ -147,9 +147,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "-6.937"},
             {"Total Fees", "$0.00"},
             {"Estimated Strategy Capacity", "$0"},
-            {"Lowest Capacity Asset", "SPX XL80P3GHDZXQ|SPX 31"},
+            {"Lowest Capacity Asset", "SPX XL80P3GHIA9A|SPX 31"},
             {"Portfolio Turnover", "2.42%"},
-            {"OrderListHash", "61e8517ac3da6bed414ef23d26736fef"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "ce421d0aeb7bde3bc92a6b87c09c510e"}
         };
     }
 }

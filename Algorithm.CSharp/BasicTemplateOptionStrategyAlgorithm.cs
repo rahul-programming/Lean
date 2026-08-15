@@ -50,8 +50,9 @@ namespace QuantConnect.Algorithm.CSharp
             // set our strike/expiry filter for this option chain
             // SetFilter method accepts TimeSpan objects or integer for days.
             // The following statements yield the same filtering criteria
-            option.SetFilter(-2, +2, 0, 180);
-            // option.SetFilter(-2, +2, TimeSpan.Zero, TimeSpan.FromDays(180));
+            option.SetFilter(u => u.StandardsOnly()
+                                   .Strikes(-2, +2)
+                                   .Expiration(0, 180));
 
             // Adding this to reproduce GH issue #2314
             SetWarmup(TimeSpan.FromMinutes(1));
@@ -83,7 +84,7 @@ namespace QuantConnect.Algorithm.CSharp
                 Liquidate();
             }
 
-            foreach(var kpv in slice.Bars)
+            foreach (var kpv in slice.Bars)
             {
                 Log($"---> OnData: {Time}, {kpv.Key.Value}, {kpv.Value.Close:0.00}");
             }
@@ -112,7 +113,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 471124;
+        public long DataPoints => 15130;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -152,10 +153,11 @@ namespace QuantConnect.Algorithm.CSharp
             {"Tracking Error", "0"},
             {"Treynor Ratio", "0"},
             {"Total Fees", "$543.40"},
-            {"Estimated Strategy Capacity", "$3000.00"},
-            {"Lowest Capacity Asset", "GOOCV W78ZFMEBBB2E|GOOCV VP83T1ZUHROL"},
+            {"Estimated Strategy Capacity", "$4000.00"},
+            {"Lowest Capacity Asset", "GOOCV W78ZFMEBFLDY|GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "338.60%"},
-            {"OrderListHash", "301c15063f6e269023d144ca69a765da"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "8229716b93428dc885cf856b4cc9fc35"}
         };
     }
 }

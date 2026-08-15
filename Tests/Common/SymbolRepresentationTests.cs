@@ -18,6 +18,7 @@ using System;
 using NUnit.Framework;
 using QuantConnect.Securities;
 using Python.Runtime;
+using System.Globalization;
 
 namespace QuantConnect.Tests.Common
 {
@@ -32,31 +33,38 @@ namespace QuantConnect.Tests.Common
             Assert.AreEqual(expected, result);
         }
 
-        [TestCase("SPXW  230111C02400000", SecurityType.IndexOption, OptionStyle.European, "SPXW", "SPX", 2400.00, "2023-01-11")]
-        [TestCase("SPY   230111C02400000", SecurityType.Option, OptionStyle.American, "SPY", "SPY", 2400.00, "2023-01-11")]
-        [TestCase("AAPL240614C00100000", SecurityType.Option, OptionStyle.American, "AAPL", "AAPL", 100.00, "2024-06-14")]
-        [TestCase("MSFT240614C00150000", SecurityType.Option, OptionStyle.American, "MSFT", "MSFT", 150.00, "2024-06-14")]
-        [TestCase("AMZN  220630C01000000", SecurityType.Option, OptionStyle.American, "AMZN", "AMZN", 1000.00, "2022-06-30")]
-        [TestCase("NFLX  230122P00250000", SecurityType.Option, OptionStyle.American, "NFLX", "NFLX", 250.00, "2023-01-22")]
-        [TestCase("TSLA  240815C00775000", SecurityType.Option, OptionStyle.American, "TSLA", "TSLA", 775.00, "2024-08-15")]
-        [TestCase("V     231211P00220000", SecurityType.Option, OptionStyle.American, "V", "V", 220.00, "2023-12-11")]
-        [TestCase("JPM   240501C00130750", SecurityType.Option, OptionStyle.American, "JPM", "JPM", 130.75, "2024-05-01")]
-        [TestCase("IBM   250212P00145000", SecurityType.Option, OptionStyle.American, "IBM", "IBM", 145.00, "2025-02-12")]
-        [TestCase("DIS   230630C00075000", SecurityType.Option, OptionStyle.American, "DIS", "DIS", 75.00, "2023-06-30")]
-        [TestCase("ORCL  231030C00065000", SecurityType.Option, OptionStyle.American, "ORCL", "ORCL", 65.00, "2023-10-30")]
-        [TestCase("CSCO  230501P00045000", SecurityType.Option, OptionStyle.American, "CSCO", "CSCO", 45.00, "2023-05-01")]
-        [TestCase("DAX   250715C01000000", SecurityType.IndexOption, OptionStyle.European, "DAX", "DAX", 1000.00, "2025-07-15")]
-        [TestCase("FTSE  230122C00750000", SecurityType.IndexOption, OptionStyle.European, "FTSE", "FTSE", 750.00, "2023-01-22")]
-        public void ParseOptionTickerOSI(string optionStr, SecurityType securityType, OptionStyle optionStyle,string expectedTargetOptionTicker, string expectedUnderlyingTicker, decimal expectedStrikePrice, string expectedDate)
+        [TestCase("SPXW  230111C02400000", SecurityType.IndexOption, OptionStyle.European, "SPXW", "SPX", "SPX", 2400.00, "2023-01-11")]
+        [TestCase("SPY   230111C02400000", SecurityType.Option, OptionStyle.American, "SPY", "SPY", "SPY", 2400.00, "2023-01-11")]
+        [TestCase("GOOG  160318C00320000", SecurityType.Option, OptionStyle.American, "GOOCV", "GOOCV", "GOOG", 320.00, "2016-03-18")]
+        [TestCase("AAPL240614C00100000", SecurityType.Option, OptionStyle.American, "AAPL", "AAPL", "AAPL", 100.00, "2024-06-14")]
+        [TestCase("MSFT240614C00150000", SecurityType.Option, OptionStyle.American, "MSFT", "MSFT", "MSFT", 150.00, "2024-06-14")]
+        [TestCase("AMZN  220630C01000000", SecurityType.Option, OptionStyle.American, "AMZN", "AMZN", "AMZN", 1000.00, "2022-06-30")]
+        [TestCase("NFLX  230122P00250000", SecurityType.Option, OptionStyle.American, "NFLX", "NFLX", "NFLX", 250.00, "2023-01-22")]
+        [TestCase("TSLA  240815C00775000", SecurityType.Option, OptionStyle.American, "TSLA", "TSLA", "TSLA", 775.00, "2024-08-15")]
+        [TestCase("V     231211P00220000", SecurityType.Option, OptionStyle.American, "V", "V", "V", 220.00, "2023-12-11")]
+        [TestCase("JPM   240501C00130750", SecurityType.Option, OptionStyle.American, "JPM", "JPM", "JPM", 130.75, "2024-05-01")]
+        [TestCase("IBM   250212P00145000", SecurityType.Option, OptionStyle.American, "IBM", "IBM", "IBM", 145.00, "2025-02-12")]
+        [TestCase("DIS   230630C00075000", SecurityType.Option, OptionStyle.American, "DIS", "DIS", "DIS", 75.00, "2023-06-30")]
+        [TestCase("ORCL  231030C00065000", SecurityType.Option, OptionStyle.American, "ORCL", "ORCL", "ORCL", 65.00, "2023-10-30")]
+        [TestCase("CSCO  230501P00045000", SecurityType.Option, OptionStyle.American, "CSCO", "CSCO", "CSCO", 45.00, "2023-05-01")]
+        [TestCase("DAX   250715C01000000", SecurityType.IndexOption, OptionStyle.European, "DAX", "DAX", "DAX", 1000.00, "2025-07-15")]
+        [TestCase("FTSE  230122C00750000", SecurityType.IndexOption, OptionStyle.European, "FTSE", "FTSE", "FTSE", 750.00, "2023-01-22")]
+        [TestCase("ES20H20  200320P03290000", SecurityType.FutureOption, OptionStyle.American, "ES20H20", "ES", "ES20H20", 3290.00, "2020-03-20")]
+        [TestCase("BRK.B   260206C00495000", SecurityType.Option, OptionStyle.American, "BRK.B", "BRK.B", "BRK.B", 495.00, "2026-02-06")]
+        public void ParseOptionTickerOSI(string optionStr, SecurityType securityType, OptionStyle optionStyle,
+            string expectedTargetOptionTicker, string expectedUnderlyingTicker, string expectedUnderlyingMappedTicker,
+            decimal expectedStrikePrice, string expectedDate)
         {
             var result = SymbolRepresentation.ParseOptionTickerOSI(optionStr, securityType, optionStyle, Market.USA);
 
             Assert.AreEqual(expectedTargetOptionTicker, result.ID.Symbol);
+            Assert.AreEqual(optionStr, result.Value);
             Assert.AreEqual(expectedUnderlyingTicker, result.Underlying.ID.Symbol);
+            Assert.AreEqual(expectedUnderlyingMappedTicker, result.Underlying.Value);
             Assert.AreEqual(securityType, result.ID.SecurityType);
             Assert.AreEqual(optionStyle, result.ID.OptionStyle);
             Assert.AreEqual(expectedStrikePrice, result.ID.StrikePrice);
-            Assert.AreEqual(DateTime.Parse(expectedDate), result.ID.Date);
+            Assert.AreEqual(DateTime.ParseExact(expectedDate, "yyyy-MM-dd", CultureInfo.InvariantCulture), result.ID.Date);
         }
 
         [Test]
@@ -149,6 +157,30 @@ namespace QuantConnect.Tests.Common
             Assert.AreEqual(result, null);
         }
 
+        [Test]
+        public void GenerateOptionTickerWithIndexOptionReturnsCorrectTicker()
+        {
+            // Expected ticker for the option contract
+            var expected = "SPXW2104A3800";
+
+            var underlying = Symbols.SPX;
+
+            // Create the option contract (IndexOption) with specific parameters
+            var option = Symbol.CreateOption(
+                underlying,
+                "SPXW",
+                Market.USA,
+                OptionStyle.European,
+                OptionRight.Call,
+                3800m,
+                new DateTime(2021, 1, 04));
+
+            var result = SymbolRepresentation.GenerateOptionTicker(option);
+
+            // Assert that the result matches the expected ticker
+            Assert.AreEqual(expected, result);
+        }
+
         [TestCase(Futures.Energy.ArgusLLSvsWTIArgusTradeMonth, 2017, 1, 29, "AE529G7", false)] // Previous month
         [TestCase(Futures.Energy.ArgusPropaneSaudiAramco, 2017, 1, 29, "A9N29G7", false)] // Previous month
         [TestCase(Futures.Energy.BrentCrude, 2017, 1, 29, "B29H7", false)] // Second prior month
@@ -207,16 +239,6 @@ namespace QuantConnect.Tests.Common
             var result = SymbolRepresentation.GenerateFutureTicker(underlying, new DateTime(year, month, day), doubleDigitsYear);
 
             Assert.AreEqual(ticker, result);
-        }
-
-        [TestCase("DC", 2023, 1, 4, "DC04Z22", true)] // Contract month is 2022-12, expires on 2023-01-04. Same situation with the rest of the test cases.
-        [TestCase("DY", 2022, 10, 4, "DY04U22", true)]
-        [TestCase("GDK", 2022, 11, 1, "GDK01V22", true)]
-        public void GenerateFutureTickerExpiringInNextMonth(string ticker, int year, int month, int day, string expectedValue, bool doubleDigitsYear)
-        {
-            var result = SymbolRepresentation.GenerateFutureTicker(ticker, new DateTime(year, month, day), doubleDigitsYear);
-
-            Assert.AreEqual(expectedValue, result);
         }
 
         [TestCase("CLU0", 2008, "2010-08-20")]
@@ -281,7 +303,7 @@ namespace QuantConnect.Tests.Common
         [TestCase("PROPANE_NON_LDH_MONT_BELVIEU", QuantConnect.Securities.Futures.Energy.PropaneNonLDHMontBelvieu)]
         [TestCase("ARGUS_PROPANE_FAR_EAST_INDEX_BALMO", QuantConnect.Securities.Futures.Energy.ArgusPropaneFarEastIndexBALMO)]
         [TestCase("GASOLINE", QuantConnect.Securities.Futures.Energy.Gasoline)]
-        [TestCase("NATURAL_GAS",QuantConnect.Securities.Futures.Energy.NaturalGas)]
+        [TestCase("NATURAL_GAS", QuantConnect.Securities.Futures.Energy.NaturalGas)]
         public void FutureEnergySymbolsWorkInPythonWithPEP8(string FutureEnergyName, string expectedFutureEnergyValue)
         {
             using (Py.GIL())

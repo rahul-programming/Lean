@@ -29,6 +29,12 @@ namespace QuantConnect
         private static TimeSpan _defaultDatabasesRefreshPeriod =
             TimeSpan.TryParse(Config.Get("databases-refresh-period", "1.00:00:00"), out var refreshPeriod) ? refreshPeriod : Time.OneDay;
 
+        // We default this to true so that we don't terminate live algorithms when the
+        // brokerage account has existing holdings for an asset that is not supported by Lean.
+        // Users can override this on initialization so that the algorithm is not terminated when
+        // placing orders for assets without a correct definition or mapping.
+        private static bool _defaultIgnoreUnknownAssetHoldings = Config.GetBool("ignore-unknown-asset-holdings", true);
+
         /// <summary>
         /// Gets whether or not WarmUpIndicator is allowed to warm up indicators
         /// </summary>
@@ -98,8 +104,11 @@ namespace QuantConnect
         /// Gets/sets the minimum time span elapsed to consider a market fill price as stale (defaults to one hour)
         /// </summary>
         /// <remarks>
-        /// In the default fill models, a warning message will be added to market order fills
-        /// if this time span (or more) has elapsed since the price was last updated.
+        /// In the default fill models, a market order on an hour or daily resolution subscription is not filled on
+        /// data older than this time span; instead it waits for fresh data (e.g. the next bar), avoiding a
+        /// fill at the stale previous close. Market orders on minute/second/tick subscriptions still fill on stale
+        /// data, only adding a warning message. Tighten it (e.g. to one minute) to make hour/daily orders wait for
+        /// the next bar more aggressively.
         /// </remarks>
         /// <seealso cref="FillModel"/>
         /// <seealso cref="ImmediateFillModel"/>
@@ -147,9 +156,30 @@ namespace QuantConnect
         public bool DailyPreciseEndTime { get; set; }
 
         /// <summary>
+        /// True if extended market hours should be used for daily consolidation, when extended market hours is enabled
+        /// </summary>
+        public bool DailyConsolidationUseExtendedMarketHours { get; set; }
+
+        /// <summary>
         /// Gets the time span used to refresh the market hours and symbol properties databases
         /// </summary>
         public TimeSpan DatabasesRefreshPeriod { get; set; }
+
+        /// <summary>
+        /// Determines whether to terminate the algorithm when an asset holding is not supported by Lean or the brokerage.
+        /// Defaults to true, meaning that the algorithm will not be terminated if an asset holding is not supported.
+        /// </summary>
+        public bool IgnoreUnknownAssetHoldings { get; set; }
+
+        /// <summary>
+        /// Performance tracking sample period to use if any, useful to debug performance issues
+        /// </summary>
+        public TimeSpan PerformanceSamplePeriod { get; set; }
+
+        /// <summary>
+        /// Determines whether to seed initial prices for all selected and manually added securities.
+        /// </summary>
+        public bool SeedInitialPrices { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AlgorithmSettings"/> class
@@ -166,6 +196,8 @@ namespace QuantConnect
             MaxAbsolutePortfolioTargetPercentage = 1000000000;
             MinAbsolutePortfolioTargetPercentage = 0.0000000001m;
             DatabasesRefreshPeriod = _defaultDatabasesRefreshPeriod;
+            IgnoreUnknownAssetHoldings = _defaultIgnoreUnknownAssetHoldings;
+            SeedInitialPrices = false;
         }
     }
 }

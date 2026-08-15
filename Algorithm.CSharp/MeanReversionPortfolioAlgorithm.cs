@@ -86,7 +86,7 @@ namespace QuantConnect.DataLibrary.Tests
             {"Net Profit", "3.872%"},
             {"Sharpe Ratio", "0.349"},
             {"Sortino Ratio", "0.375"},
-            {"Probabilistic Sharpe Ratio", "29.228%"},
+            {"Probabilistic Sharpe Ratio", "28.925%"},
             {"Loss Rate", "48%"},
             {"Win Rate", "52%"},
             {"Profit-Loss Ratio", "2.37"},
@@ -101,6 +101,7 @@ namespace QuantConnect.DataLibrary.Tests
             {"Estimated Strategy Capacity", "$700000000.00"},
             {"Lowest Capacity Asset", "AAPL R735QTJ8XC9X"},
             {"Portfolio Turnover", "18.24%"},
+            {"Drawdown Recovery", "63"},
             {"OrderListHash", "22337335b8bbfb4fc1093879c3ddd4d8"}
         };
     }

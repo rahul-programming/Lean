@@ -69,7 +69,7 @@ namespace QuantConnect.Indicators
         /// <summary>
         /// Gets a flag indicating when this indicator is ready and fully initialized
         /// </summary>
-        public override bool IsReady => _medianMax.IsReady && _medianMax.IsReady;
+        public override bool IsReady => _medianMax.IsReady && _medianMin.IsReady;
 
         /// <summary>
         /// Required period, in data points, for the indicator to be ready and fully initialized.
@@ -89,8 +89,8 @@ namespace QuantConnect.Indicators
         protected override decimal ComputeNextValue(IBaseDataBar input)
         {
             var price = (input.Low + input.High) / 2m;
-            _medianMin.Update(input.Time, price);
-            _medianMax.Update(input.Time, price);
+            _medianMin.Update(input.EndTime, price);
+            _medianMax.Update(input.EndTime, price);
 
             if (!IsReady) return 0;
 

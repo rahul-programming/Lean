@@ -20,6 +20,7 @@ using QuantConnect.Logging;
 using System;
 using System.Collections;
 using System.IO;
+using System.Text.Json;
 using System.Threading;
 
 namespace QuantConnect.Tests.API
@@ -86,7 +87,7 @@ namespace QuantConnect.Tests.API
                 return;
             }
             Log.Debug("ApiTestBase.Setup(): Waiting for test compile to complete");
-            compile = WaitForCompilerResponse(TestProject.ProjectId, compile.CompileId);
+            compile = WaitForCompilerResponse(ApiClient, TestProject.ProjectId, compile.CompileId);
             if (!compile.Success)
             {
                 Assert.Warn("Could not create compile for the test project, tests using it will fail.");
@@ -95,7 +96,7 @@ namespace QuantConnect.Tests.API
 
             // Create a backtest
             Log.Debug("ApiTestBase.Setup(): Creating test backtest");
-            var backtestName = $"{DateTime.UtcNow.ToStringInvariant("u")} API Backtest";
+            var backtestName = $"{DateTime.UtcNow.ToStringInvariant("yyyy-MM-dd HH-mm-ss")} API Backtest";
             var backtest = ApiClient.CreateBacktest(TestProject.ProjectId, compile.CompileId, backtestName);
             if (!backtest.Success)
             {
@@ -103,7 +104,7 @@ namespace QuantConnect.Tests.API
                 return;
             }
             Log.Debug("ApiTestBase.Setup(): Waiting for test backtest to complete");
-            TestBacktest = WaitForBacktestCompletion(TestProject.ProjectId, backtest.BacktestId);
+            TestBacktest = WaitForBacktestCompletion(ApiClient, TestProject.ProjectId, backtest.BacktestId);
             if (!TestBacktest.Success)
             {
                 Assert.Warn("Could not create backtest for the test project, tests using it will fail.");
@@ -128,21 +129,37 @@ namespace QuantConnect.Tests.API
             }
         }
 
+        public static bool IsValidJson(string jsonString)
+        {
+            try
+            {
+                using (JsonDocument doc = JsonDocument.Parse(jsonString))
+                {
+
+                }
+                return true;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+
         /// <summary>
         /// Wait for the compiler to respond to a specified compile request
         /// </summary>
         /// <param name="projectId">Id of the project</param>
         /// <param name="compileId">Id of the compilation of the project</param>
         /// <returns></returns>
-        protected Compile WaitForCompilerResponse(int projectId, string compileId)
+        public static Compile WaitForCompilerResponse(Api.Api apiClient, int projectId, string compileId, int seconds = 60)
         {
-            Compile compile;
-            var finish = DateTime.UtcNow.AddSeconds(60);
+            var compile = new Compile();
+            var finish = DateTime.UtcNow.AddSeconds(seconds);
             do
             {
-                Thread.Sleep(1000);
-                compile = ApiClient.ReadCompile(projectId, compileId);
-            } while (compile.State != CompileState.BuildSuccess && DateTime.UtcNow < finish);
+                Thread.Sleep(100);
+                compile = apiClient.ReadCompile(projectId, compileId);
+            } while (compile.State == CompileState.InQueue && DateTime.UtcNow < finish);
 
             return compile;
         }
@@ -153,15 +170,32 @@ namespace QuantConnect.Tests.API
         /// <param name="projectId">Project id to scan</param>
         /// <param name="backtestId">Backtest id previously started</param>
         /// <returns>Completed backtest object</returns>
-        protected Backtest WaitForBacktestCompletion(int projectId, string backtestId)
+        public static Backtest WaitForBacktestCompletion(Api.Api apiClient, int projectId, string backtestId, int secondsTimeout = 60, bool returnFailedBacktest = false)
         {
             Backtest backtest;
-            var finish = DateTime.UtcNow.AddSeconds(60);
+            var finish = DateTime.UtcNow.AddSeconds(secondsTimeout);
             do
             {
                 Thread.Sleep(1000);
-                backtest = ApiClient.ReadBacktest(projectId, backtestId);
-            } while (backtest.Success && backtest.Progress < 1 && DateTime.UtcNow < finish);
+                backtest = apiClient.ReadBacktest(projectId, backtestId);
+                if (backtest == null)
+                {
+                    // api failed, let's retry
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(backtest.Error) || backtest.HasInitializeError)
+                {
+                    if (!returnFailedBacktest)
+                    {
+                        Assert.Fail($"Backtest {projectId}/{backtestId} failed: {backtest.Error}. Stacktrace: {backtest.Stacktrace}. Api errors: {string.Join(",", backtest.Errors)}");
+                    }
+                    else
+                    {
+                        return backtest;
+                    }
+                }
+            } while (((backtest == null || (backtest.Success && backtest.Progress < 1)) && DateTime.UtcNow < finish));
 
             return backtest;
         }
@@ -169,7 +203,7 @@ namespace QuantConnect.Tests.API
         /// <summary>
         /// Reload configuration, making sure environment variables are loaded into the config
         /// </summary>
-        private static void ReloadConfiguration()
+        internal static void ReloadConfiguration()
         {
             // nunit 3 sets the current folder to a temp folder we need it to be the test bin output folder
             var dir = TestContext.CurrentContext.TestDirectory;

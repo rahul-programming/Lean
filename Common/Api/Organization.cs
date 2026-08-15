@@ -35,7 +35,7 @@ namespace QuantConnect.Api
     /// <summary>
     /// Object representation of Organization from QuantConnect Api
     /// </summary>
-    public class Organization
+    public class Organization: StringRepresentation
     {
         /// <summary>
         /// Data Agreement information
@@ -69,6 +69,7 @@ namespace QuantConnect.Api
         /// DateTime the agreement was signed.
         /// Uses EpochSignedTime converted to a standard datetime.
         /// </summary>
+        [JsonIgnore]
         public DateTime? SignedTime => EpochSignedTime.HasValue ? DateTimeOffset.FromUnixTimeSeconds(EpochSignedTime.Value).DateTime : null;
 
         /// <summary>
@@ -108,7 +109,7 @@ namespace QuantConnect.Api
     }
 
     /// <summary>
-    /// QuantConnect ProductItem 
+    /// QuantConnect ProductItem
     /// </summary>
     public class ProductItem
     {
@@ -117,6 +118,11 @@ namespace QuantConnect.Api
         /// </summary>
         [JsonProperty(PropertyName = "productId")]
         public int Id { get; set; }
+
+        /// <summary>
+        /// Quantity for this product
+        /// </summary>
+        public int Quantity { get; set; }
     }
 
     /// <summary>

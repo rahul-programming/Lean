@@ -36,7 +36,9 @@ namespace QuantConnect.Algorithm.CSharp
             SetStartDate(2014, 06, 05);
             SetEndDate(2014, 06, 09);
 
-            _aaplOption = AddOption("AAPL").Symbol;
+            var option = AddOption("AAPL");
+            option.SetFilter(u => u.StandardsOnly().Strikes(-1, 1).Expiration(0, 35));
+            _aaplOption = option.Symbol;
             AddUniverseSelection(new DailyUniverseSelectionModel("MyCustomSelectionModel", time => new[] { "AAPL" }, this));
         }
 
@@ -95,7 +97,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 3541240;
+        public long DataPoints => 19701;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -115,7 +117,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "1"},
             {"Average Win", "0%"},
             {"Average Loss", "0%"},
-            {"Compounding Annual Return", "0.562%"},
+            {"Compounding Annual Return", "0.524%"},
             {"Drawdown", "0.000%"},
             {"Expectancy", "0"},
             {"Start Equity", "100000"},
@@ -123,7 +125,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "0.007%"},
             {"Sharpe Ratio", "-3.983"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "79.393%"},
+            {"Probabilistic Sharpe Ratio", "32.788%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
@@ -138,6 +140,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$4200000000.00"},
             {"Lowest Capacity Asset", "AAPL R735QTJ8XC9X"},
             {"Portfolio Turnover", "0.13%"},
+            {"Drawdown Recovery", "2"},
             {"OrderListHash", "87f55de4577d35a6ff70a7fd335e14a4"}
         };
     }

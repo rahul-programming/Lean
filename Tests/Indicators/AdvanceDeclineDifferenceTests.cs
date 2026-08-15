@@ -17,6 +17,8 @@ using NUnit.Framework;
 using QuantConnect.Data.Consolidators;
 using QuantConnect.Data.Market;
 using QuantConnect.Indicators;
+using System.Collections.Generic;
+using System.Linq;
 using static QuantConnect.Tests.Indicators.TestHelper;
 
 namespace QuantConnect.Tests.Indicators
@@ -27,11 +29,23 @@ namespace QuantConnect.Tests.Indicators
         protected override IndicatorBase<TradeBar> CreateIndicator()
         {
             var adDifference = new AdvanceDeclineDifference("test_name");
-            adDifference.AddStock(Symbols.AAPL);
-            adDifference.AddStock(Symbols.IBM);
-            adDifference.AddStock(Symbols.GOOG);
-            RenkoBarSize = 5000000;
+            if (SymbolList.Count > 2)
+            {
+                SymbolList.Take(3).ToList().ForEach(adDifference.AddStock);
+            }
+            else
+            {
+                adDifference.AddStock(Symbols.AAPL);
+                adDifference.AddStock(Symbols.IBM);
+                adDifference.AddStock(Symbols.GOOG);
+                RenkoBarSize = 5000000;
+            }
             return adDifference;
+        }
+
+        protected override List<Symbol> GetSymbols()
+        {
+            return [Symbols.SPY, Symbols.AAPL, Symbols.IBM];
         }
 
         [Test]
@@ -67,6 +81,26 @@ namespace QuantConnect.Tests.Indicators
             adDifference.Update(new TradeBar() { Symbol = Symbols.GOOG, Close = 3, Volume = 100, Time = reference.AddMinutes(2) });
 
             Assert.AreEqual(0m, adDifference.Current.Value);
+        }
+
+        [Test]
+        public void ProducesTheSameValuesAfterReset()
+        {
+            var indicator = CreateIndicator();
+            var reference = System.DateTime.Today;
+
+            UpdateStocks(indicator, reference.AddMinutes(1), 1m, 1m, 1m);
+            UpdateStocks(indicator, reference.AddMinutes(2), 2m, 0.5m, 3m);
+            var expected = indicator.Current.Value;
+            Assert.AreNotEqual(0m, expected);
+
+            UpdateStocks(indicator, reference.AddMinutes(3), 3m, 1m, 2m);
+            indicator.Reset();
+
+            UpdateStocks(indicator, reference.AddMinutes(1), 1m, 1m, 1m);
+            UpdateStocks(indicator, reference.AddMinutes(2), 2m, 0.5m, 3m);
+
+            Assert.AreEqual(expected, indicator.Current.Value);
         }
 
         [Test]
@@ -256,6 +290,36 @@ namespace QuantConnect.Tests.Indicators
                 googRenkoConsolidator.Dispose();
                 ibmRenkoConsolidator.Dispose();
             }
+        }
+
+        [Test]
+        public override void IndicatorShouldHaveSymbolAfterUpdates()
+        {
+            var indicator = CreateIndicator();
+            var reference = System.DateTime.Today;
+
+            for (int i = 0; i < 10; i++)
+            {
+                indicator.Update(new TradeBar() { Symbol = Symbols.AAPL, Close = 1, Volume = 1, Time = reference.AddMinutes(1) });
+                indicator.Update(new TradeBar() { Symbol = Symbols.IBM, Close = 1, Volume = 1, Time = reference.AddMinutes(1) });
+                indicator.Update(new TradeBar() { Symbol = Symbols.GOOG, Close = 1, Volume = 1, Time = reference.AddMinutes(1) });
+
+                // indicator is not ready yet
+                indicator.Update(new TradeBar() { Symbol = Symbols.AAPL, Close = 2, Volume = 1, Time = reference.AddMinutes(2) });
+                indicator.Update(new TradeBar() { Symbol = Symbols.IBM, Close = 0.5m, Volume = 1, Time = reference.AddMinutes(2) });
+                indicator.Update(new TradeBar() { Symbol = Symbols.GOOG, Close = 3, Volume = 1, Time = reference.AddMinutes(2) });
+
+                // indicator is ready
+                // The last update used Symbol.GOOG, so the indicator's current Symbol should be GOOG
+                Assert.AreEqual(Symbols.GOOG, indicator.Current.Symbol);
+            }
+        }
+
+        private static void UpdateStocks(IndicatorBase<TradeBar> indicator, System.DateTime time, decimal aapl, decimal ibm, decimal goog)
+        {
+            indicator.Update(new TradeBar() { Symbol = Symbols.AAPL, Close = aapl, Volume = 100, Time = time });
+            indicator.Update(new TradeBar() { Symbol = Symbols.IBM, Close = ibm, Volume = 100, Time = time });
+            indicator.Update(new TradeBar() { Symbol = Symbols.GOOG, Close = goog, Volume = 100, Time = time });
         }
 
         protected override string TestFileName => "arms_data.txt";

@@ -54,7 +54,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "29"},
             {"Average Win", "0.36%"},
             {"Average Loss", "-0.49%"},
-            {"Compounding Annual Return", "30.410%"},
+            {"Compounding Annual Return", "30.800%"},
             {"Drawdown", "1.800%"},
             {"Expectancy", "0.335"},
             {"Start Equity", "100000"},
@@ -62,7 +62,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "2.206%"},
             {"Sharpe Ratio", "3.159"},
             {"Sortino Ratio", "5.45"},
-            {"Probabilistic Sharpe Ratio", "75.413%"},
+            {"Probabilistic Sharpe Ratio", "74.078%"},
             {"Loss Rate", "23%"},
             {"Win Rate", "77%"},
             {"Profit-Loss Ratio", "0.73"},
@@ -77,7 +77,8 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$7500000.00"},
             {"Lowest Capacity Asset", "AIG R735QTJ8XC9X"},
             {"Portfolio Turnover", "16.15%"},
-            {"OrderListHash", "25aaba3290376cc6d5e00a4ca4d3f20f"}
+            {"Drawdown Recovery", "9"},
+            {"OrderListHash", "028da9558692fed9991723beeb8eeb23"}
         };
     }
 }

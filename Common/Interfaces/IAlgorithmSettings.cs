@@ -84,6 +84,11 @@ namespace QuantConnect.Interfaces
         bool DailyPreciseEndTime { get; set; }
 
         /// <summary>
+        /// True if extended market hours should be used for daily consolidation, when extended market hours is enabled
+        /// </summary>
+        bool DailyConsolidationUseExtendedMarketHours { get; set; }
+
+        /// <summary>
         /// Gets/sets the maximum number of concurrent market data subscriptions available
         /// </summary>
         /// <remarks>
@@ -94,8 +99,15 @@ namespace QuantConnect.Interfaces
         int DataSubscriptionLimit { get; set; }
 
         /// <summary>
-        /// Gets the minimum time span elapsed to consider a market fill price as stale (defaults to one hour)
+        /// Gets/sets the minimum time span elapsed to consider a market fill price as stale (defaults to one hour)
         /// </summary>
+        /// <remarks>
+        /// In the default fill models, a market order on an hour or daily resolution subscription is not filled on
+        /// data older than this time span; instead it waits for fresh data (e.g. the next bar), avoiding a
+        /// fill at the stale previous close. Market orders on minute/second/tick subscriptions still fill on stale
+        /// data, only adding a warning message. Tighten it (e.g. to one minute) to make hour/daily orders wait for
+        /// the next bar more aggressively.
+        /// </remarks>
         TimeSpan StalePriceTimeSpan { get; set; }
 
         /// <summary>
@@ -128,5 +140,20 @@ namespace QuantConnect.Interfaces
         /// Gets the time span used to refresh the market hours and symbol properties databases
         /// </summary>
         TimeSpan DatabasesRefreshPeriod { get; set; }
+
+        /// <summary>
+        /// Determines whether to terminate the algorithm when an asset is not supported by Lean or the brokerage
+        /// </summary>
+        bool IgnoreUnknownAssetHoldings { get; set; }
+
+        /// <summary>
+        /// Performance tracking sample period to use if any, useful to debug performance issues
+        /// </summary>
+        TimeSpan PerformanceSamplePeriod { get; set; }
+
+        /// <summary>
+        /// Determines whether to seed initial prices for all selected and manually added securities.
+        /// </summary>
+        bool SeedInitialPrices { get; set; }
     }
 }

@@ -21,6 +21,7 @@ using QuantConnect.Util;
 using System.Globalization;
 using QuantConnect.Logging;
 using static QuantConnect.StringExtensions;
+using QuantConnect.Python;
 
 namespace QuantConnect.Data.Market
 {
@@ -34,7 +35,7 @@ namespace QuantConnect.Data.Market
         // scale factor used in QC equity/forex data files
         private const decimal _scaleFactor = 1 / 10000m;
 
-        private int _initialized;
+        protected int Initialized;
         private decimal _open;
         private decimal _high;
         private decimal _low;
@@ -104,6 +105,7 @@ namespace QuantConnect.Data.Market
         /// <summary>
         /// The closing time of this bar, computed via the Time and Period
         /// </summary>
+        [PandasIgnore]
         public override DateTime EndTime
         {
             get { return Time + Period; }
@@ -114,6 +116,7 @@ namespace QuantConnect.Data.Market
         /// The period of this trade bar, (second, minute, daily, ect...)
         /// </summary>
         [ProtoMember(106)]
+        [PandasIgnore]
         public virtual TimeSpan Period { get; set; }
 
         //In Base Class: Alias of Closing:
@@ -152,7 +155,7 @@ namespace QuantConnect.Data.Market
             Close = original.Close;
             Volume = original.Volume;
             Period = original.Period;
-            _initialized = 1;
+            Initialized = 1;
         }
 
         /// <summary>
@@ -178,7 +181,7 @@ namespace QuantConnect.Data.Market
             Volume = volume;
             Period = period ?? QuantConnect.Time.OneMinute;
             DataType = MarketDataType.TradeBar;
-            _initialized = 1;
+            Initialized = 1;
         }
 
         /// <summary>
@@ -253,6 +256,7 @@ namespace QuantConnect.Data.Market
         /// <param name="date">Date of this reader request</param>
         /// <param name="isLiveMode">true if we're in live mode, false for backtesting mode</param>
         /// <returns>Enumerable iterator for returning each line of the required data.</returns>
+        [StubsIgnore]
         public override BaseData Reader(SubscriptionDataConfig config, StreamReader stream, DateTime date, bool isLiveMode)
         {
             //Handle end of file:
@@ -868,7 +872,7 @@ namespace QuantConnect.Data.Market
         /// <param name="value">The seed value for this bar</param>
         private void Initialize(decimal value)
         {
-            if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
+            if (Interlocked.CompareExchange(ref Initialized, 1, 0) == 0)
             {
                 _open = value;
                 _low = value;

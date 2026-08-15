@@ -13,10 +13,10 @@
  * limitations under the License.
 */
 
-using System;
 using System.Collections.Generic;
 using QuantConnect.Data;
 using QuantConnect.Interfaces;
+using QuantConnect.Orders;
 
 namespace QuantConnect.Algorithm.CSharp
 {
@@ -43,16 +43,16 @@ namespace QuantConnect.Algorithm.CSharp
         /// <param name="data">Slice object keyed by symbol containing the stock data</param>
         public override void OnData(Slice slice)
         {
-            try
+            var ticket = MarketOrder("PEPE", 1);
+
+            if (ticket.Status != OrderStatus.Invalid)
             {
-                MarketOrder("PEPE", 1);
+                throw new RegressionTestException($"Expected order to be invalid since PEPE is not a valid ticker, but was {ticket.Status}");
             }
-            catch (Exception exception)
+
+            if (!Portfolio.Invested)
             {
-                if (exception.Message.Contains("This asset symbol (PEPE 0) was not found in your security list") && !Portfolio.Invested)
-                {
-                    SetHoldings("SPY", 1);
-                }
+                SetHoldings("SPY", 1);
             }
         }
 
@@ -69,7 +69,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 1582;
+        public long DataPoints => 1583;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -112,6 +112,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$56000000.00"},
             {"Lowest Capacity Asset", "SPY R735QTJ8XC9X"},
             {"Portfolio Turnover", "49.82%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "3da9fa60bf95b9ed148b95e02e0cfc9e"}
         };
     }

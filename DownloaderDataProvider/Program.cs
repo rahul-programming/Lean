@@ -21,11 +21,14 @@ using QuantConnect.Logging;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
 using QuantConnect.Configuration;
-using QuantConnect.Lean.Engine.DataFeeds;
+using QuantConnect.Data.UniverseSelection;
 using DataFeeds = QuantConnect.Lean.Engine.DataFeeds;
+using QuantConnect.Lean.Engine.DataFeeds.DataDownloader;
+using QuantConnect.DownloaderDataProvider.Launcher.Models;
 using QuantConnect.DownloaderDataProvider.Launcher.Models.Constants;
 
 namespace QuantConnect.DownloaderDataProvider.Launcher;
+
 public static class Program
 {
     /// <summary>
@@ -60,13 +63,29 @@ public static class Program
             Config.MergeCommandLineArgumentsWithConfiguration(DownloaderDataProviderArgumentParser.ParseArguments(args));
         }
 
-        InitializeConfigurations();
+        var dataDownloaderSelector = InitializeConfigurations();
 
-        var dataDownloader = Composer.Instance.GetExportedValueByTypeName<IDataDownloader>(Config.Get(DownloaderCommandArguments.CommandDownloaderDataDownloader));
+        var commandDataType = Config.Get(DownloaderCommandArguments.CommandDataType).ToUpperInvariant();
 
-        var dataDownloadConfig = new DataDownloadConfig();
+        var dataDownloadConfig = default(BaseDataDownloadConfig);
+        switch (commandDataType)
+        {
+            case "UNIVERSE":
+                dataDownloadConfig = new DataUniverseDownloadConfig();
+                RunUniverseDownloader(dataDownloaderSelector.GetDataDownloader(dataDownloadConfig.DataType), dataDownloadConfig);
+                break;
+            case "TRADE":
+            case "QUOTE":
+            case "OPENINTEREST":
+                dataDownloadConfig = new DataDownloadConfig();
+                RunDownload(dataDownloaderSelector.GetDataDownloader(dataDownloadConfig.DataType), dataDownloadConfig, Globals.DataFolder, _dataCacheProvider);
+                break;
+            default:
+                Log.Error($"QuantConnect.DownloaderDataProvider.Launcher: Unsupported command data type '{commandDataType}'. Valid options: UNIVERSE, TRADE, QUOTE, OPENINTEREST.");
+                break;
+        }
 
-        RunDownload(dataDownloader, dataDownloadConfig, Globals.DataFolder, _dataCacheProvider);
+        dataDownloaderSelector.Dispose();
     }
 
     /// <summary>
@@ -78,7 +97,7 @@ public static class Program
     /// <param name="dataCacheProvider">The provider used to cache history data files</param>
     /// <param name="mapSymbol">True if the symbol should be mapped while writing the data</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="dataDownloader"/> is null.</exception>
-    public static void RunDownload(IDataDownloader dataDownloader, DataDownloadConfig dataDownloadConfig, string dataDirectory, IDataCacheProvider dataCacheProvider, bool mapSymbol = true)
+    public static void RunDownload(IDataDownloader dataDownloader, BaseDataDownloadConfig dataDownloadConfig, string dataDirectory, IDataCacheProvider dataCacheProvider, bool mapSymbol = true)
     {
         if (dataDownloader == null)
         {
@@ -99,7 +118,7 @@ public static class Program
             if (downloadedData == null)
             {
                 completeSymbolCount++;
-                Log.Trace($"DownloaderDataProvider.Main(): No data available for the following parameters: {downloadParameters}");
+                Log.Trace($"DownloaderDataProvider.RunDownload(): No data returned for {downloadParameters.Symbol}. The brokerage does not support this request (unsupported resolution, tick type, or asset type).");
                 continue;
             }
 
@@ -110,16 +129,18 @@ public static class Program
             var groupedData = DataFeeds.DownloaderDataProvider.FilterAndGroupDownloadDataBySymbol(
                 downloadedData,
                 symbol,
-                LeanData.GetDataType(downloadParameters.Resolution, downloadParameters.TickType),
+                dataDownloadConfig.DataType,
                 exchangeTimeZone,
                 dataTimeZone,
                 downloadParameters.StartUtc,
                 downloadParameters.EndUtc);
 
             var lastLogStatusTime = DateTime.UtcNow;
+            var dataWasWritten = false;
 
             foreach (var data in groupedData)
             {
+                dataWasWritten = true;
                 writer.Write(data.Select(data =>
                 {
                     var utcNow = DateTime.UtcNow;
@@ -136,10 +157,32 @@ public static class Program
             var symbolPercentComplete = (double)completeSymbolCount / totalDownloadSymbols * 100;
             Log.Trace($"DownloaderDataProvider.RunDownload(): {symbolPercentComplete:F2}% complete ({completeSymbolCount} out of {totalDownloadSymbols} symbols)");
 
-            Log.Trace($"DownloaderDataProvider.RunDownload(): Download completed for {downloadParameters.Symbol} at {downloadParameters.Resolution} resolution, " +
-                $"covering the period from {dataDownloadConfig.StartDate} to {dataDownloadConfig.EndDate}.");
+            if (!dataWasWritten)
+            {
+                Log.Trace($"DownloaderDataProvider.RunDownload(): No data found for {downloadParameters.Symbol} between " +
+                    $"{dataDownloadConfig.StartDate:yyyy-MM-dd} and {dataDownloadConfig.EndDate:yyyy-MM-dd}.");
+            }
+            else
+            {
+                Log.Trace($"DownloaderDataProvider.RunDownload(): Download completed for {downloadParameters.Symbol} at {downloadParameters.Resolution} resolution, " +
+                    $"covering the period from {dataDownloadConfig.StartDate} to {dataDownloadConfig.EndDate}.");
+            }
         }
         Log.Trace($"All downloads completed in {(DateTime.UtcNow - startDownloadUtcTime).TotalSeconds:F2} seconds.");
+    }
+
+    /// <summary>
+    /// Initiates the universe downloader using the provided configuration.
+    /// </summary>
+    /// <param name="dataDownloader">The data downloader instance.</param>
+    /// <param name="dataUniverseDownloadConfig">The universe download configuration.</param>
+    private static void RunUniverseDownloader(IDataDownloader dataDownloader, BaseDataDownloadConfig dataUniverseDownloadConfig)
+    {
+        foreach (var symbol in dataUniverseDownloadConfig.Symbols)
+        {
+            var universeDownloadParameters = new DataUniverseDownloaderGetParameters(symbol, dataUniverseDownloadConfig.StartDate, dataUniverseDownloadConfig.EndDate);
+            UniverseExtensions.RunUniverseDownloader(dataDownloader, universeDownloadParameters);
+        }
     }
 
     /// <summary>
@@ -162,7 +205,7 @@ public static class Program
     /// This method sets up logging, data providers, map file providers, and factor file providers.
     /// </summary>
     /// <remarks>
-    /// The method reads configuration values to determine whether debugging is enabled, 
+    /// The method reads configuration values to determine whether debugging is enabled,
     /// which log handler to use, and which data, map file, and factor file providers to initialize.
     /// </remarks>
     /// <seealso cref="Log"/>
@@ -172,23 +215,19 @@ public static class Program
     /// <seealso cref="IDataProvider"/>
     /// <seealso cref="IMapFileProvider"/>
     /// <seealso cref="IFactorFileProvider"/>
-    public static void InitializeConfigurations()
+    public static DataDownloaderSelector InitializeConfigurations()
     {
         Log.DebuggingEnabled = Config.GetBool("debug-mode", false);
-        Log.LogHandler = Composer.Instance.GetExportedValueByTypeName<ILogHandler>(Config.Get("log-handler", "CompositeLogHandler"));
+        Log.LogHandler = Composer.Instance.GetExportedValueByTypeName<ILogHandler>(Config.Get("log-handler", "ConsoleLogHandler"));
 
         var dataProvider = Composer.Instance.GetExportedValueByTypeName<IDataProvider>("DefaultDataProvider");
         var mapFileProvider = Composer.Instance.GetExportedValueByTypeName<IMapFileProvider>(Config.Get("map-file-provider", "LocalDiskMapFileProvider"));
         var factorFileProvider = Composer.Instance.GetExportedValueByTypeName<IFactorFileProvider>(Config.Get("factor-file-provider", "LocalDiskFactorFileProvider"));
 
-        var optionChainProvider = Composer.Instance.GetPart<IOptionChainProvider>();
-        if (optionChainProvider == null)
-        {
-            optionChainProvider = new CachingOptionChainProvider(new LiveOptionChainProvider(new ZipDataCacheProvider(dataProvider, false), mapFileProvider));
-            Composer.Instance.AddPart(optionChainProvider);
-        }
-
         mapFileProvider.Initialize(dataProvider);
         factorFileProvider.Initialize(mapFileProvider, dataProvider);
+
+        var dataDownloader = Composer.Instance.GetExportedValueByTypeName<IDataDownloader>(Config.Get(DownloaderCommandArguments.CommandDownloaderDataDownloader));
+        return new DataDownloaderSelector(dataDownloader, mapFileProvider, dataProvider, factorFileProvider);
     }
 }

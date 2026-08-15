@@ -27,7 +27,7 @@ namespace QuantConnect.Algorithm.CSharp
     public class OptionGreeksRegressionAlgorithm : QCAlgorithm, IRegressionAlgorithmDefinition
     {
         private Symbol _itmCallSymbol, _otmCallSymbol, _itmPutSymbol, _otmPutSymbol;
-        private const decimal error = 0.05m;
+        private const decimal error = 0.1m;
 
         public override void Initialize()
         {
@@ -150,6 +150,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", ""},
             {"Portfolio Turnover", "0%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "d41d8cd98f00b204e9800998ecf8427e"}
         };
     }

@@ -110,7 +110,7 @@ namespace QuantConnect
             public static string TargetOrderMarginNotAboveMinimum()
             {
                 return "Warning: Portfolio rebalance result ignored as it resulted in a single share trade recommendation which can generate high fees." +
-                    " To disable minimum order size checks please set Settings.MinimumOrderMarginPortfolioPercentage = 0.";
+                    $" To disable minimum order size checks please set {FormatCodeRoot("Settings")}.{FormatCode("MinimumOrderMarginPortfolioPercentage")} = 0.";
             }
 
             /// <summary>
@@ -777,14 +777,36 @@ namespace QuantConnect
         public static class SecurityExchangeHours
         {
             /// <summary>
-            /// String message saying: Unable to locate next market open within two weeks
+            /// Returns an error message when the next market open could not be located within two weeks.
+            /// Includes additional guidance if the market is always open (e.g., crypto assets).
             /// </summary>
-            public static string UnableToLocateNextMarketOpenInTwoWeeks = "Unable to locate next market open within two weeks.";
+            public static string UnableToLocateNextMarketOpenInTwoWeeks(bool isMarketAlwaysOpen)
+            {
+                var message = "Unable to locate next market open within two weeks.";
+                if (!isMarketAlwaysOpen)
+                {
+                    return message;
+                }
+                message += " Market is always open for this asset, this can happen e.g. if using TimeRules AfterMarketOpen for a crypto asset. " +
+                    "An alternative would be TimeRules.At(), TimeRules.Every(), TimeRules.Midnight or TimeRules.Noon instead";
+                return message;
+            }
 
             /// <summary>
-            /// String message saying: Unable to locate next market close within two weeks
+            /// Returns an error message when the next market close could not be located within two weeks.
+            /// Includes additional guidance if the market is always open (e.g., crypto assets).
             /// </summary>
-            public static string UnableToLocateNextMarketCloseInTwoWeeks = "Unable to locate next market close within two weeks.";
+            public static string UnableToLocateNextMarketCloseInTwoWeeks(bool isMarketAlwaysOpen)
+            {
+                var message = "Unable to locate next market close within two weeks.";
+                if (!isMarketAlwaysOpen)
+                {
+                    return message;
+                }
+                message += " Market is always open for this asset, this can happen e.g. if using TimeRules BeforeMarketClose for a crypto asset. " +
+                    "An alternative would be TimeRules.At(), TimeRules.Every(), TimeRules.Midnight or TimeRules.Noon instead";
+                return message;
+            }
 
             /// <summary>
             /// Returns a string message saying it did not find last market open for the given local date time. It also mentions
@@ -818,14 +840,14 @@ namespace QuantConnect
         public static class SecurityManager
         {
             /// <summary>
-            /// Returns a string message saying the given symbol was not found in the user security list
+            /// Returns a string message saying the given symbol was not found in the user security list.
+            /// It also suggests the safe access idioms that prevent the exception
             /// </summary>
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static string SymbolNotFoundInSecurities(QuantConnect.Symbol symbol)
             {
-                return Invariant($@"This asset symbol ({
-                    symbol}) was not found in your security list. Please add this security or check it exists before using it with 'Securities.ContainsKey(""{
-                    QuantConnect.SymbolCache.GetTicker(symbol)}"")'");
+                return Invariant($"This asset symbol ({symbol}) was not found in your security list. ") +
+                    $"Please add this security before using it. {SafeKeyAccessSuggestion(FormatCodeRoot("Securities"))}";
             }
 
             /// <summary>
@@ -864,15 +886,30 @@ namespace QuantConnect
             /// Returns a string message saying the AccountCurrency cannot be changed after adding a Security and that the method
             /// SetAccountCurrency() should be moved before AddSecurity()
             /// </summary>
-            public static string CannotChangeAccountCurrencyAfterAddingSecurity =
-                "Cannot change AccountCurrency after adding a Security. Please move SetAccountCurrency() before AddSecurity().";
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string CannotChangeAccountCurrencyAfterAddingSecurity()
+            {
+                return $"Cannot change AccountCurrency after adding a Security. Please move {FormatCode("SetAccountCurrency")}() before {FormatCode("AddSecurity")}().";
+            }
 
             /// <summary>
-            /// Returns a string message saying the AccountCurrency cannot be changed after setting cash and that the method
-            /// SetAccountCurrency() should be moved before SetCash()
+            /// Returns a string message saying the AccountCurrency has been changed after setting cash, reporting the
+            /// remaining amount held in the previous account currency
             /// </summary>
-            public static string CannotChangeAccountCurrencyAfterSettingCash =
-                "Cannot change AccountCurrency after setting cash. Please move SetAccountCurrency() before SetCash().";
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string AccountCurrencyChangedAfterSettingCash(Securities.Cash previousCash)
+            {
+                return Invariant($"Account currency was changed after SetCash() was called. Algorithm still holds {previousCash.Amount} {previousCash.Symbol} in the previous account currency.");
+            }
+
+            /// <summary>
+            /// Returns a string message saying the account currency starting cash has been updated from a previous amount to a new one
+            /// </summary>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string AccountCurrencyCashUpdated(string accountCurrency, decimal previousAmount, decimal newAmount)
+            {
+                return Invariant($"Account currency cash updated to {newAmount} {accountCurrency} from {previousAmount} {accountCurrency}.");
+            }
 
             /// <summary>
             /// Returns a string message saying the AccountCurrency has already been set and that the new value for this property
@@ -924,7 +961,7 @@ namespace QuantConnect
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static string SymbolNotFoundInSymbolPropertiesDatabase(QuantConnect.Symbol symbol)
             {
-                return $"Symbol could not be found in the Symbol Properties Database: {symbol.Value}";
+                return $"{symbol.SecurityType} '{symbol.Value}' symbol could not be found in the database for {symbol.ID.Market} market";
             }
         }
 
@@ -936,8 +973,11 @@ namespace QuantConnect
             /// <summary>
             /// Returns a string message saying CancelOpenOrders operation is not allowed in Initialize or during warm up
             /// </summary>
-            public static string CancelOpenOrdersNotAllowedOnInitializeOrWarmUp =
-                "This operation is not allowed in Initialize or during warm up: CancelOpenOrders. Please move this code to the OnWarmupFinished() method.";
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string CancelOpenOrdersNotAllowedOnInitializeOrWarmUp()
+            {
+                return $"This operation is not allowed in {FormatCode("Initialize")} or during warm up: {FormatCode("CancelOpenOrders")}. Please move this code to the {FormatCode("OnWarmupFinished")}() method.";
+            }
 
             /// <summary>
             /// Returns a string message saying the order was canceled by the CancelOpenOrders() at the given time
@@ -975,17 +1015,29 @@ namespace QuantConnect
             /// <summary>
             /// String message saying the SymbolProperties LotSize can not be less than or equal to 0
             /// </summary>
-            public static string InvalidLotSize = "SymbolProperties LotSize can not be less than or equal to 0";
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string InvalidLotSize()
+            {
+                return $"{FormatCode("SymbolProperties")} {FormatCode("LotSize")} can not be less than or equal to 0";
+            }
 
             /// <summary>
             /// String message saying the SymbolProperties PriceMagnifier can not be less than or equal to 0
             /// </summary>
-            public static string InvalidPriceMagnifier = "SymbolProprties PriceMagnifier can not be less than or equal to 0";
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string InvalidPriceMagnifier()
+            {
+                return $"{FormatCode("SymbolProperties")} {FormatCode("PriceMagnifier")} can not be less than or equal to 0";
+            }
 
             /// <summary>
             /// String message saying the SymbolProperties StrikeMultiplier can not be less than or equal to 0
             /// </summary>
-            public static string InvalidStrikeMultiplier = "SymbolProperties StrikeMultiplier can not be less than or equal to 0";
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string InvalidStrikeMultiplier()
+            {
+                return $"{FormatCode("SymbolProperties")} {FormatCode("StrikeMultiplier")} can not be less than or equal to 0";
+            }
 
             /// <summary>
             /// Parses a given SymbolProperties object into a string message

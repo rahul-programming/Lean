@@ -44,6 +44,8 @@ namespace QuantConnect.Algorithm.CSharp
         private ExponentialMovingAverage _fast;
         private ExponentialMovingAverage _slow;
 
+        protected virtual bool AsynchronousOrders => false;
+
         public bool IsReady { get { return _fast.IsReady && _slow.IsReady; } }
         public bool TrendIsUp { get { return IsReady && _fast > _slow * (1 + _tolerance); } }
         public bool TrendIsDown { get { return IsReady && _fast < _slow * (1 + _tolerance); } }
@@ -77,11 +79,11 @@ namespace QuantConnect.Algorithm.CSharp
             var security = Securities[_symbol];
             if (_buyOrderTicket == null && TrendIsUp)
             {
-                _buyOrderTicket = StopLimitOrder(_symbol, 100, stopPrice: security.High * 1.10m, limitPrice: security.High * 1.11m);
+                _buyOrderTicket = StopLimitOrder(_symbol, 100, stopPrice: security.High * 1.10m, limitPrice: security.High * 1.11m, asynchronous: AsynchronousOrders);
             }
             else if (_buyOrderTicket.Status == OrderStatus.Filled && _sellOrderTicket == null && TrendIsDown)
             {
-                _sellOrderTicket = StopLimitOrder(_symbol, -100, stopPrice: security.Low * 0.99m, limitPrice: security.Low * 0.98m);
+                _sellOrderTicket = StopLimitOrder(_symbol, -100, stopPrice: security.Low * 0.99m, limitPrice: security.Low * 0.98m, asynchronous: AsynchronousOrders);
             }
         }
 
@@ -127,6 +129,14 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 throw new RegressionTestException("Expected the two orders (buy and sell) to have been filled at the end of the algorithm.");
             }
+
+            foreach (var ticket in Transactions.GetOrderTickets())
+            {
+                if (ticket.SubmitRequest.Asynchronous != AsynchronousOrders)
+                {
+                    throw new RegressionTestException("Expected all orders to have the same asynchronous flag as the algorithm.");
+                }
+            }
         }
 
         /// <summary>
@@ -170,7 +180,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "1.278%"},
             {"Sharpe Ratio", "-0.791"},
             {"Sortino Ratio", "-0.433"},
-            {"Probabilistic Sharpe Ratio", "4.702%"},
+            {"Probabilistic Sharpe Ratio", "0.000%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
@@ -185,6 +195,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$6100000000.00"},
             {"Lowest Capacity Asset", "SPY R735QTJ8XC9X"},
             {"Portfolio Turnover", "0.02%"},
+            {"Drawdown Recovery", "39"},
             {"OrderListHash", "f315858f3f9e6a983cfcf887237f70fd"}
         };
     }

@@ -21,7 +21,12 @@ namespace QuantConnect.Securities
     /// <summary>
     /// Represents derivative symbols universe used in filtering.
     /// </summary>
-    public interface IDerivativeSecurityFilterUniverse : IEnumerable<Symbol>
+    public interface IDerivativeSecurityFilterUniverse<T> : IEnumerable<T>
+        where T : IChainUniverseData
     {
+        /// <summary>
+        /// The number of contracts in the universe
+        /// </summary>
+        int Count { get; }
     }
 }

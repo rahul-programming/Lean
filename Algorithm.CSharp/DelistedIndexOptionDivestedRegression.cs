@@ -51,10 +51,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             if (_addOption)
             {
-                var contracts = OptionChainProvider.GetOptionContractList(_spx, Time);
-                contracts = contracts.Where(x =>
-                    x.ID.OptionRight == OptionRight.Put &&
-                    x.ID.Date.Date == new DateTime(2021, 1, 15));
+                var contracts = OptionChain(_spx).Where(x => x.ID.OptionRight == OptionRight.Put && x.ID.Date.Date == new DateTime(2021, 1, 15));
 
                 var option = AddIndexOptionContract(contracts.First(), Resolution.Minute);
                 _optionExpiry = option.Expiry;
@@ -123,12 +120,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 17099;
+        public long DataPoints => 17100;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -151,7 +148,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "-26.015%"},
             {"Sharpe Ratio", "-0.605"},
             {"Sortino Ratio", "-0.24"},
-            {"Probabilistic Sharpe Ratio", "19.498%"},
+            {"Probabilistic Sharpe Ratio", "19.482%"},
             {"Loss Rate", "100%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
@@ -164,9 +161,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "1.124"},
             {"Total Fees", "$0.00"},
             {"Estimated Strategy Capacity", "$1000000.00"},
-            {"Lowest Capacity Asset", "SPX 31KC0UJFONTBI|SPX 31"},
+            {"Lowest Capacity Asset", "SPX 31KC0UJFOS3N2|SPX 31"},
             {"Portfolio Turnover", "1.24%"},
-            {"OrderListHash", "d1d242c46f1715249551f5da81d467d4"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "eea2a6b8ea827058d695cd5a7bb338ab"}
         };
     }
 }

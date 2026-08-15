@@ -17,7 +17,9 @@
 using System;
 using System.Linq;
 using NUnit.Framework;
+using Python.Runtime;
 using QuantConnect.Data.Market;
+using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Securities;
 
 namespace QuantConnect.Tests.Common.Securities
@@ -33,25 +35,26 @@ namespace QuantConnect.Tests.Common.Securities
             Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe => universe
                     .Expiration(TimeSpan.FromDays(3), TimeSpan.FromDays(7));
 
-            Func<IDerivativeSecurityFilterUniverse, IDerivativeSecurityFilterUniverse> func =
+            Func<IDerivativeSecurityFilterUniverse<FutureUniverse>, IDerivativeSecurityFilterUniverse<FutureUniverse>> func =
                 universe => universeFunc(universe as FutureFilterUniverse);
 
-            var filter = new FuncSecurityDerivativeFilter(func);
+            var filter = new FuncSecurityDerivativeFilter<FutureUniverse>(func);
             var symbols = new[]
             {
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(0)), // 0
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(1)), // 1
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(2)), // 2
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(3)), // 3
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(4)), // 4
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(5)), // 5
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(6)), // 6
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(7)), // 7
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(8)), // 8
-                Symbol.CreateFuture("SPY", Market.USA, time.AddDays(9)), // 9
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(0)), // 0
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(1)), // 1
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(2)), // 2
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(3)), // 3
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(4)), // 4
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(5)), // 5
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(6)), // 6
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(7)), // 7
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(8)), // 8
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(9)), // 9
             };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x });
 
-            var filtered = filter.Filter(new FutureFilterUniverse(symbols, time)).ToList();
+            var filtered = filter.Filter(new FutureFilterUniverse(data.ToList(), time)).Select(x => x.Symbol).ToList();
             Assert.AreEqual(5, filtered.Count);
             Assert.AreEqual(symbols[3], filtered[0]);
             Assert.AreEqual(symbols[4], filtered[1]);
@@ -61,30 +64,128 @@ namespace QuantConnect.Tests.Common.Securities
         }
 
         [Test]
-        public void FiltersOutWeeklysByDefault()
+        public void CountReturnsTheNumberOfContractsInTheUniverse()
+        {
+            var time = new DateTime(2016, 02, 26);
+            var symbols = new[]
+            {
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(3)),
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(5)),
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(10)),
+            };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x }).ToList();
+            var universe = new FutureFilterUniverse(data, time);
+
+            Assert.AreEqual(symbols.Length, universe.Count);
+
+            // Filter and check the count reflects the filtered contracts
+            universe.Expiration(TimeSpan.FromDays(3), TimeSpan.FromDays(7));
+            Assert.AreEqual(2, universe.Count);
+        }
+
+        [Test]
+        public void CountIsUpdatedAsFiltersReduceTheUniverse()
+        {
+            var time = new DateTime(2016, 02, 26);
+            var symbols = Enumerable.Range(0, 10)
+                .Select(i => Symbol.CreateFuture("SPY", Market.CME, time.AddDays(i)))
+                .ToArray();
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x }).ToList();
+            var universe = new FutureFilterUniverse(data, time);
+
+            Assert.AreEqual(symbols.Length, universe.Count);
+
+            // Contracts expiring within 3 to 7 days
+            universe.Expiration(TimeSpan.FromDays(3), TimeSpan.FromDays(7));
+            Assert.AreEqual(5, universe.Count);
+
+            // Out of those, only the earliest expiring contract
+            universe.FrontMonth();
+            Assert.AreEqual(1, universe.Count);
+        }
+
+        [Test]
+        public void PythonLenReturnsTheNumberOfContractsInTheUniverse()
+        {
+            var time = new DateTime(2016, 02, 26);
+            var symbols = new[]
+            {
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(0)), // 0
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(1)), // 1
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(2)), // 2
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(3)), // 3
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(4)), // 4
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(5)), // 5
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(6)), // 6
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(7)), // 7
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(8)), // 8
+                Symbol.CreateFuture("SPY", Market.CME, time.AddDays(9)), // 9
+            };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x }).ToList();
+            var universe = new FutureFilterUniverse(data, time);
+
+            using (Py.GIL())
+            {
+                using var module = PyModule.FromString("testModule",
+                    @"
+def get_length(universe):
+    return len(universe)");
+                using var getLength = module.GetAttr("get_length");
+                using var pyUniverse = universe.ToPython();
+
+                // The whole universe
+                using var length = getLength.Invoke(pyUniverse);
+                Assert.AreEqual(symbols.Length, length.As<int>());
+
+                // Filter and check the length reflects the filtered contracts
+                universe.Expiration(TimeSpan.FromDays(3), TimeSpan.FromDays(7));
+                using var filteredLength = getLength.Invoke(pyUniverse);
+                Assert.AreEqual(5, filteredLength.As<int>());
+            }
+        }
+
+        [TestCase(false, 6)]
+        [TestCase(true, 2)]
+        public void FutureContractFiltering(bool standardsOnly, int expectedCount)
         {
             var time = new DateTime(2016, 02, 17, 13, 0, 0);
 
-            Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe => universe;
+            Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe =>
+                standardsOnly ? universe.StandardsOnly() : universe;
 
-            Func<IDerivativeSecurityFilterUniverse, IDerivativeSecurityFilterUniverse> func =
+            Func<IDerivativeSecurityFilterUniverse<FutureUniverse>, IDerivativeSecurityFilterUniverse<FutureUniverse>> func =
                 universe => universeFunc(universe as FutureFilterUniverse).ApplyTypesFilter();
 
-            var filter = new FuncSecurityDerivativeFilter(func);
+            var filter = new FuncSecurityDerivativeFilter<FutureUniverse>(func);
             var symbols = new[]
             {
-                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(0)), // 0 Standard!!
-                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(1)), // 1
-                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(2)), // 2
-                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(8)), // 8
-                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(16)), // 16
-                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(28)), // 28 Standard!!
+                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(0)), // Standard
+                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(1)),
+                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(2)),
+                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(8)),
+                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(16)),
+                Symbol.CreateFuture("VX", Market.CFE, time.AddDays(28)), // Standard
             };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x });
 
-            var filtered = filter.Filter(new FutureFilterUniverse(symbols, time)).ToList();
-            Assert.AreEqual(2, filtered.Count);
-            Assert.AreEqual(symbols[0], filtered[0]);
-            Assert.AreEqual(symbols[5], filtered[1]);
+            var filtered = filter.Filter(new FutureFilterUniverse(data.ToList(), time)).Select(x => x.Symbol).ToList();
+
+            Assert.AreEqual(expectedCount, filtered.Count);
+
+            if (standardsOnly)
+            {
+                // When StandardsOnly, only Standards should be returned
+                Assert.AreEqual(symbols[0], filtered[0]);
+                Assert.AreEqual(symbols[5], filtered[1]);
+            }
+            else
+            {
+                // By default both Standards and Weeklys are returned
+                for (int i = 0; i < 6; i++)
+                {
+                    Assert.AreEqual(symbols[i], filtered[i]);
+                }
+            }
         }
 
         [Test]
@@ -92,10 +193,10 @@ namespace QuantConnect.Tests.Common.Securities
         {
             Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe => universe;
 
-            Func<IDerivativeSecurityFilterUniverse, IDerivativeSecurityFilterUniverse> func =
+            Func<IDerivativeSecurityFilterUniverse<FutureUniverse>, IDerivativeSecurityFilterUniverse<FutureUniverse>> func =
                 universe => universeFunc(universe as FutureFilterUniverse).ApplyTypesFilter();
 
-            var filter = new FuncSecurityDerivativeFilter(func);
+            var filter = new FuncSecurityDerivativeFilter<FutureUniverse>(func);
             var symbols = new[]
             {
                 Symbol.CreateFuture("CL", Market.NYMEX, new DateTime(2020, 11, 20)),
@@ -105,8 +206,9 @@ namespace QuantConnect.Tests.Common.Securities
                 Symbol.CreateFuture("YO", Market.NYMEX, new DateTime(2021, 4, 30)),
                 Symbol.CreateFuture("NG", Market.NYMEX, new DateTime(2020, 11, 25))
             };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x });
 
-            var standardContracts = filter.Filter(new FutureFilterUniverse(symbols, new DateTime(2020, 1, 1))).ToList();
+            var standardContracts = filter.Filter(new FutureFilterUniverse(data.ToList(), new DateTime(2020, 1, 1))).Select(x => x.Symbol).ToList();
             Assert.AreEqual(6, standardContracts.Count);
             Assert.AreEqual(symbols[0], standardContracts[0]);
             Assert.AreEqual(symbols[1], standardContracts[1]);
@@ -124,10 +226,10 @@ namespace QuantConnect.Tests.Common.Securities
             // Include Weeklys to get both types of contracts through
             Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe => universe.IncludeWeeklys();
 
-            Func<IDerivativeSecurityFilterUniverse, IDerivativeSecurityFilterUniverse> func =
+            Func<IDerivativeSecurityFilterUniverse<FutureUniverse>, IDerivativeSecurityFilterUniverse<FutureUniverse>> func =
                 universe => universeFunc(universe as FutureFilterUniverse).ApplyTypesFilter();
 
-            var filter = new FuncSecurityDerivativeFilter(func);
+            var filter = new FuncSecurityDerivativeFilter<FutureUniverse>(func);
             var symbols = new[]
             {
                 Symbol.CreateFuture("VX", Market.CFE, time.AddDays(0)), // 0 Standard!!
@@ -137,8 +239,9 @@ namespace QuantConnect.Tests.Common.Securities
                 Symbol.CreateFuture("VX", Market.CFE, time.AddDays(16)), // 16
                 Symbol.CreateFuture("VX", Market.CFE, time.AddDays(28)), // 28 Standard!!
             };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x });
 
-            var filtered = filter.Filter(new FutureFilterUniverse(symbols, time)).ToList();
+            var filtered = filter.Filter(new FutureFilterUniverse(data.ToList(), time)).Select(x => x.Symbol).ToList();
             Assert.AreEqual(6, filtered.Count);
             Assert.AreEqual(symbols, filtered);
         }
@@ -151,10 +254,10 @@ namespace QuantConnect.Tests.Common.Securities
             // Weeklys only to drop standard contracts
             Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe => universe.WeeklysOnly();
 
-            Func<IDerivativeSecurityFilterUniverse, IDerivativeSecurityFilterUniverse> func =
+            Func<IDerivativeSecurityFilterUniverse<FutureUniverse>, IDerivativeSecurityFilterUniverse<FutureUniverse>> func =
                 universe => universeFunc(universe as FutureFilterUniverse).ApplyTypesFilter();
 
-            var filter = new FuncSecurityDerivativeFilter(func);
+            var filter = new FuncSecurityDerivativeFilter<FutureUniverse>(func);
             var symbols = new[]
             {
                 Symbol.CreateFuture("VX", Market.CFE, time.AddDays(0)), // 0 Standard!!
@@ -164,8 +267,9 @@ namespace QuantConnect.Tests.Common.Securities
                 Symbol.CreateFuture("VX", Market.CFE, time.AddDays(16)), // 16
                 Symbol.CreateFuture("VX", Market.CFE, time.AddDays(28)), // 28 Standard!!
             };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x });
 
-            var filtered = filter.Filter(new FutureFilterUniverse(symbols, time)).ToList();
+            var filtered = filter.Filter(new FutureFilterUniverse(data.ToList(), time)).Select(x => x.Symbol).ToList();
             Assert.AreEqual(4, filtered.Count);
             Assert.AreEqual(symbols[1], filtered[0]);
             Assert.AreEqual(symbols[2], filtered[1]);
@@ -183,10 +287,10 @@ namespace QuantConnect.Tests.Common.Securities
 
             Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe => universe.FrontMonth();
 
-            Func<IDerivativeSecurityFilterUniverse, IDerivativeSecurityFilterUniverse> func =
+            Func<IDerivativeSecurityFilterUniverse<FutureUniverse>, IDerivativeSecurityFilterUniverse<FutureUniverse>> func =
                 universe => universeFunc(universe as FutureFilterUniverse);
 
-            var filter = new FuncSecurityDerivativeFilter(func);
+            var filter = new FuncSecurityDerivativeFilter<FutureUniverse>(func);
             var symbols = new[]
             {
                 Symbol.CreateFuture("SPY", Market.USA, expiry1),  // 0
@@ -200,8 +304,9 @@ namespace QuantConnect.Tests.Common.Securities
                 Symbol.CreateFuture("SPY", Market.USA, expiry4), // 8
                 Symbol.CreateFuture("SPY", Market.USA, expiry4), // 9
             };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x });
 
-            var filtered = filter.Filter(new FutureFilterUniverse(symbols, new DateTime(2016, 02, 26))).ToList();
+            var filtered = filter.Filter(new FutureFilterUniverse(data.ToList(), new DateTime(2016, 02, 26))).ToList();
             Assert.AreEqual(4, filtered.Count);
         }
 
@@ -215,10 +320,10 @@ namespace QuantConnect.Tests.Common.Securities
 
             Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe => universe.BackMonth();
 
-            Func<IDerivativeSecurityFilterUniverse, IDerivativeSecurityFilterUniverse> func =
+            Func<IDerivativeSecurityFilterUniverse<FutureUniverse>, IDerivativeSecurityFilterUniverse<FutureUniverse>> func =
                 universe => universeFunc(universe as FutureFilterUniverse);
 
-            var filter = new FuncSecurityDerivativeFilter(func);
+            var filter = new FuncSecurityDerivativeFilter<FutureUniverse>(func);
             var symbols = new[]
             {
                 Symbol.CreateFuture("SPY", Market.USA, expiry1),  // 0
@@ -232,8 +337,9 @@ namespace QuantConnect.Tests.Common.Securities
                 Symbol.CreateFuture("SPY", Market.USA, expiry4), // 8
                 Symbol.CreateFuture("SPY", Market.USA, expiry4), // 9
             };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x });
 
-            var filtered = filter.Filter(new FutureFilterUniverse(symbols, new DateTime(2016, 02, 26))).ToList();
+            var filtered = filter.Filter(new FutureFilterUniverse(data.ToList(), new DateTime(2016, 02, 26))).ToList();
             Assert.AreEqual(3, filtered.Count);
         }
 
@@ -247,10 +353,10 @@ namespace QuantConnect.Tests.Common.Securities
 
             Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe => universe.ExpirationCycle(FutureExpirationCycles.March);
 
-            Func<IDerivativeSecurityFilterUniverse, IDerivativeSecurityFilterUniverse> func =
+            Func<IDerivativeSecurityFilterUniverse<FutureUniverse>, IDerivativeSecurityFilterUniverse<FutureUniverse>> func =
                 universe => universeFunc(universe as FutureFilterUniverse);
 
-            var filter = new FuncSecurityDerivativeFilter(func);
+            var filter = new FuncSecurityDerivativeFilter<FutureUniverse>(func);
             var symbols = new[]
             {
                 Symbol.CreateFuture("SPY", Market.USA, expiry1),  // 0
@@ -264,8 +370,9 @@ namespace QuantConnect.Tests.Common.Securities
                 Symbol.CreateFuture("SPY", Market.USA, expiry4), // 8
                 Symbol.CreateFuture("SPY", Market.USA, expiry4), // 9
             };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x });
 
-            var filtered = filter.Filter(new FutureFilterUniverse(symbols, new DateTime(2016, 02, 26))).ToList();
+            var filtered = filter.Filter(new FutureFilterUniverse(data.ToList(), new DateTime(2016, 02, 26))).ToList();
             Assert.AreEqual(5, filtered.Count);
         }
 
@@ -278,17 +385,18 @@ namespace QuantConnect.Tests.Common.Securities
             // By Default only includes standards
             Func<FutureFilterUniverse, FutureFilterUniverse> universeFunc = universe => universe;
 
-            Func<IDerivativeSecurityFilterUniverse, IDerivativeSecurityFilterUniverse> func =
+            Func<IDerivativeSecurityFilterUniverse<FutureUniverse>, IDerivativeSecurityFilterUniverse<FutureUniverse>> func =
                 universe => universeFunc(universe as FutureFilterUniverse).ApplyTypesFilter();
 
-            var filter = new FuncSecurityDerivativeFilter(func);
+            var filter = new FuncSecurityDerivativeFilter<FutureUniverse>(func);
             var symbols = new[]
             {
                 Symbol.CreateFuture("VX", Market.USA, time.AddDays(0)), // There is no Expiry function for VX on Market.USA
             };
+            var data = symbols.Select(x => new FutureUniverse() { Symbol = x });
 
             // Since this is a unidentifiable symbol for our expiry functions it will return true and be passed through
-            var filtered = filter.Filter(new FutureFilterUniverse(symbols, time)).ToList();
+            var filtered = filter.Filter(new FutureFilterUniverse(data.ToList(), time)).Select(x => x.Symbol).ToList();
             Assert.AreEqual(1, filtered.Count);
             Assert.AreEqual(symbols[0], filtered[0]);
         }

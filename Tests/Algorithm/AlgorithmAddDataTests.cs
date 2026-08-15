@@ -19,7 +19,9 @@ using System.Linq;
 using Newtonsoft.Json;
 using NodaTime;
 using NUnit.Framework;
+using Python.Runtime;
 using QuantConnect.Algorithm;
+using QuantConnect.Algorithm.Framework.Selection;
 using QuantConnect.Algorithm.Selection;
 using QuantConnect.AlgorithmFactory.Python.Wrappers;
 using QuantConnect.Configuration;
@@ -28,6 +30,7 @@ using QuantConnect.Data.Auxiliary;
 using QuantConnect.Data.Consolidators;
 using QuantConnect.Data.Custom.IconicTypes;
 using QuantConnect.Data.Market;
+using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Securities;
 using QuantConnect.Tests.Engine.DataFeeds;
@@ -64,8 +67,10 @@ namespace QuantConnect.Tests.Algorithm
 
             // new forex - should be tradebar
             var forexQuote = algo.AddForex("EURUSD");
-            Assert.IsTrue(forexQuote.Subscriptions.Count() == 1);
+            // The quote bar subscription is kept
+            Assert.IsTrue(forexQuote.Subscriptions.Count() == 2);
             Assert.IsTrue(GetMatchingSubscription(algo, forexQuote.Symbol, typeof(TradeBar)) != null);
+            Assert.IsTrue(GetMatchingSubscription(algo, forexQuote.Symbol, typeof(QuoteBar)) != null);
 
             // reset to empty string, affects other tests because config is static
             Config.Set("security-data-feeds", "");
@@ -90,14 +95,30 @@ namespace QuantConnect.Tests.Algorithm
 
             // equity low resolution
             var equityDaily = algo.AddSecurity(SecurityType.Equity, "goog", Resolution.Daily);
-            Assert.IsTrue(equityDaily.Subscriptions.Count() == 2);
+            Assert.IsTrue(equityDaily.Subscriptions.Count() == 3);
             Assert.IsTrue(GetMatchingSubscription(algo, equityDaily.Symbol, typeof(TradeBar)) != null);
+            Assert.IsTrue(GetMatchingSubscription(algo, equityMinute.Symbol, typeof(QuoteBar)) != null);
 
+            Assert.IsTrue(ReferenceEquals(equityMinute, equityDaily));
+
+            var equitySubscriptions = algo.SubscriptionManager.SubscriptionDataConfigService
+                .GetSubscriptionDataConfigs(equityMinute.Symbol);
+            Assert.IsTrue(equitySubscriptions.SingleOrDefault(
+                s => s.TickType == TickType.Trade && s.Type == typeof(TradeBar) && s.Resolution == Resolution.Minute) != null);
+            Assert.IsTrue(equitySubscriptions.SingleOrDefault(
+                s => s.TickType == TickType.Quote && s.Type == typeof(QuoteBar) && s.Resolution == Resolution.Minute) != null);
+            Assert.IsTrue(equitySubscriptions.SingleOrDefault(
+                s => s.TickType == TickType.Trade && s.Type == typeof(TradeBar) && s.Resolution == Resolution.Daily) != null);
 
             // option
             var option = algo.AddSecurity(SecurityType.Option, "goog");
             Assert.IsTrue(option.Subscriptions.Count() == 1);
-            Assert.IsTrue(GetMatchingSubscription(algo, option.Symbol, typeof(ZipEntryName)) != null);
+            Assert.IsTrue(GetMatchingSubscription(algo, option.Symbol, typeof(OptionUniverse)) != null);
+
+            // index option
+            var indexOption = algo.AddSecurity(SecurityType.IndexOption, "spx");
+            Assert.IsTrue(indexOption.Subscriptions.Count() == 1);
+            Assert.IsTrue(GetMatchingSubscription(algo, indexOption.Symbol, typeof(OptionUniverse)) != null);
 
             // cfd
             var cfd = algo.AddSecurity(SecurityType.Cfd, "abc");
@@ -107,19 +128,32 @@ namespace QuantConnect.Tests.Algorithm
             // future
             var future = algo.AddSecurity(SecurityType.Future, "ES");
             Assert.IsTrue(future.Subscriptions.Count() == 1);
-            Assert.IsTrue(future.Subscriptions.FirstOrDefault(x => typeof(ZipEntryName).IsAssignableFrom(x.Type)) != null);
+            Assert.IsTrue(future.Subscriptions.FirstOrDefault(x => typeof(FutureUniverse) == x.Type) != null);
 
             // Crypto high resolution
-            var cryptoMinute = algo.AddSecurity(SecurityType.Equity, "goog");
+            var cryptoMinute = algo.AddSecurity(SecurityType.Crypto, "btcusd");
             Assert.IsTrue(cryptoMinute.Subscriptions.Count() == 2);
             Assert.IsTrue(GetMatchingSubscription(algo, cryptoMinute.Symbol, typeof(TradeBar)) != null);
             Assert.IsTrue(GetMatchingSubscription(algo, cryptoMinute.Symbol, typeof(QuoteBar)) != null);
 
             // Crypto low resolution
             var cryptoHourly = algo.AddSecurity(SecurityType.Crypto, "btcusd", Resolution.Hour);
-            Assert.IsTrue(cryptoHourly.Subscriptions.Count() == 2);
+            Assert.IsTrue(cryptoHourly.Subscriptions.Count() == 4);
             Assert.IsTrue(GetMatchingSubscription(algo, cryptoHourly.Symbol, typeof(TradeBar)) != null);
             Assert.IsTrue(GetMatchingSubscription(algo, cryptoHourly.Symbol, typeof(QuoteBar)) != null);
+
+            Assert.IsTrue(ReferenceEquals(cryptoMinute, cryptoHourly));
+
+            var cryptoSubscriptions = algo.SubscriptionManager.SubscriptionDataConfigService
+                .GetSubscriptionDataConfigs(cryptoMinute.Symbol);
+            Assert.IsTrue(cryptoSubscriptions.SingleOrDefault(
+                s => s.TickType == TickType.Trade && s.Type == typeof(TradeBar) && s.Resolution == Resolution.Minute) != null);
+            Assert.IsTrue(cryptoSubscriptions.SingleOrDefault(
+                s => s.TickType == TickType.Quote && s.Type == typeof(QuoteBar) && s.Resolution == Resolution.Minute) != null);
+            Assert.IsTrue(cryptoSubscriptions.SingleOrDefault(
+                s => s.TickType == TickType.Trade && s.Type == typeof(TradeBar) && s.Resolution == Resolution.Hour) != null);
+            Assert.IsTrue(cryptoSubscriptions.SingleOrDefault(
+                s => s.TickType == TickType.Quote && s.Type == typeof(QuoteBar) && s.Resolution == Resolution.Hour) != null);
         }
 
 
@@ -146,6 +180,7 @@ namespace QuantConnect.Tests.Algorithm
             var qcAlgorithm = new QCAlgorithm();
             qcAlgorithm.SubscriptionManager.SetDataManager(new DataManagerStub(qcAlgorithm, new MockDataFeed()));
             qcAlgorithm.SetLiveMode(true);
+            qcAlgorithm.Settings.SeedInitialPrices = false;
             var testHistoryProvider = new TestHistoryProvider();
             qcAlgorithm.HistoryProvider = testHistoryProvider;
 
@@ -168,6 +203,7 @@ namespace QuantConnect.Tests.Algorithm
             var qcAlgorithm = new QCAlgorithm();
             qcAlgorithm.SubscriptionManager.SetDataManager(new DataManagerStub(qcAlgorithm, new MockDataFeed()));
             qcAlgorithm.SetLiveMode(true);
+            qcAlgorithm.Settings.SeedInitialPrices = false;
             var testHistoryProvider = new TestHistoryProvider();
             qcAlgorithm.HistoryProvider = testHistoryProvider;
             var option = qcAlgorithm.AddOption(testHistoryProvider.underlyingSymbol);
@@ -182,7 +218,6 @@ namespace QuantConnect.Tests.Algorithm
 
             qcAlgorithm.OnEndOfTimeStep();
             var data = qcAlgorithm.Securities[testHistoryProvider.underlyingSymbol].GetLastData();
-            Assert.AreEqual(testHistoryProvider.LastResolutionRequest, Resolution.Minute);
             Assert.IsNotNull(data);
             Assert.AreEqual(data.Price, 2);
         }
@@ -447,7 +482,7 @@ namespace QuantConnect.Tests.Algorithm
             underlying.SetFilter(0, 365);
 
             algo.AddFutureOption(underlying.Symbol, _ => _);
-            Assert.IsTrue(algo.UniverseSelection is OptionChainedUniverseSelectionModel);
+            Assert.IsTrue(algo.UniverseSelection is CompositeUniverseSelectionModel);
         }
 
         [TestCase("AAPL", typeof(IndexedLinkedData), true)]
@@ -604,6 +639,22 @@ namespace QuantConnect.Tests.Algorithm
         }
 
         [Test]
+        public void AddDataWithStringAsTypeArgumentThrowsClearError()
+        {
+            var qcAlgorithm = new QCAlgorithm();
+            qcAlgorithm.SubscriptionManager.SetDataManager(new DataManagerStub(qcAlgorithm));
+
+            using var _ = Py.GIL();
+            using var pyTicker = "VIX".ToPython();
+
+            // Passing a string instead of a custom data class as the first argument used to silently build a
+            // dynamic assembly named after the string and later hang/fail downstream. It must now throw.
+            var ex = Assert.Throws<ArgumentException>(() => qcAlgorithm.AddData(pyTicker, "VIX", Resolution.Daily));
+            StringAssert.Contains("AddData", ex.Message);
+            StringAssert.Contains("AddEquity", ex.Message);
+        }
+
+        [Test]
         public void AppendsCustomDataTypeName_ToSecurityIdentifierSymbol()
         {
             const string ticker = "ticker";
@@ -695,7 +746,6 @@ namespace QuantConnect.Tests.Algorithm
             public string underlyingSymbol = "GOOG";
             public string underlyingSymbol2 = "AAPL";
             public override int DataPointCount { get; }
-            public Resolution LastResolutionRequest;
 
             public override void Initialize(HistoryProviderInitializeParameters parameters)
             {
@@ -705,12 +755,11 @@ namespace QuantConnect.Tests.Algorithm
             public override IEnumerable<Slice> GetHistory(IEnumerable<HistoryRequest> requests, DateTimeZone sliceTimeZone)
             {
                 var now = DateTime.UtcNow;
-                LastResolutionRequest = requests.First().Resolution;
                 #pragma warning disable CS0618
                 var tradeBar1 = new TradeBar(now, underlyingSymbol, 1, 1, 1, 1, 1, TimeSpan.FromDays(1));
                 var tradeBar2 = new TradeBar(now, underlyingSymbol2, 3, 3, 3, 3, 3, TimeSpan.FromDays(1));
                 var slice1 = new Slice(now, new List<BaseData> { tradeBar1, tradeBar2 },
-                                    new TradeBars(now), new QuoteBars(),
+                                    new TradeBars(now) { tradeBar1, tradeBar2  }, new QuoteBars(),
                                     new Ticks(), new OptionChains(),
                                     new FuturesChains(), new Splits(),
                                     new Dividends(now), new Delistings(),
@@ -718,7 +767,7 @@ namespace QuantConnect.Tests.Algorithm
                 var tradeBar1_2 = new TradeBar(now, underlyingSymbol, 2, 2, 2, 2, 2, TimeSpan.FromDays(1));
                 #pragma warning restore CS0618
                 var slice2 = new Slice(now, new List<BaseData> { tradeBar1_2 },
-                    new TradeBars(now), new QuoteBars(),
+                    new TradeBars(now) { tradeBar1_2 }, new QuoteBars(),
                     new Ticks(), new OptionChains(),
                     new FuturesChains(), new Splits(),
                     new Dividends(now), new Delistings(),

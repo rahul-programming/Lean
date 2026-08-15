@@ -50,7 +50,7 @@ namespace QuantConnect.Algorithm.CSharp
             _spx = AddIndex("SPX", Resolution.Minute).Symbol;
 
             // Select a index option expiring ITM, and adds it to the algorithm.
-            _spxOption = AddIndexOptionContract(OptionChainProvider.GetOptionContractList(_spx, Time)
+            _spxOption = AddIndexOptionContract(OptionChain(_spx)
                 .Where(x => x.ID.StrikePrice >= 4250m && x.ID.OptionRight == OptionRight.Call && x.ID.Date.Year == 2021 && x.ID.Date.Month == 1)
                 .OrderBy(x => x.ID.StrikePrice)
                 .Take(1)
@@ -163,12 +163,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 15941;
+        public long DataPoints => 15942;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -181,32 +181,33 @@ namespace QuantConnect.Algorithm.CSharp
         public Dictionary<string, string> ExpectedStatistics => new Dictionary<string, string>
         {
             {"Total Orders", "2"},
-            {"Average Win", "0.01%"},
+            {"Average Win", "0.00%"},
             {"Average Loss", "0%"},
-            {"Compounding Annual Return", "0.142%"},
+            {"Compounding Annual Return", "0.071%"},
             {"Drawdown", "0%"},
             {"Expectancy", "0"},
             {"Start Equity", "100000"},
-            {"End Equity", "100010"},
-            {"Net Profit", "0.010%"},
-            {"Sharpe Ratio", "-6.787"},
+            {"End Equity", "100005"},
+            {"Net Profit", "0.005%"},
+            {"Sharpe Ratio", "-12.573"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "98.983%"},
+            {"Probabilistic Sharpe Ratio", "7.807%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
-            {"Alpha", "-0.001"},
+            {"Alpha", "-0.002"},
             {"Beta", "-0"},
             {"Annual Standard Deviation", "0"},
             {"Annual Variance", "0"},
-            {"Information Ratio", "-0.32"},
+            {"Information Ratio", "-0.323"},
             {"Tracking Error", "0.138"},
-            {"Treynor Ratio", "14.02"},
+            {"Treynor Ratio", "412.889"},
             {"Total Fees", "$0.00"},
-            {"Estimated Strategy Capacity", "$22000.00"},
-            {"Lowest Capacity Asset", "SPX XL80P59H5E6M|SPX 31"},
+            {"Estimated Strategy Capacity", "$0"},
+            {"Lowest Capacity Asset", "SPX XL80P59H9OI6|SPX 31"},
             {"Portfolio Turnover", "0.00%"},
-            {"OrderListHash", "8fbc0a49b64de5da9ff2beb923c7039b"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "6383580692a8a32a8184ae2cfc2b5d8a"}
         };
     }
 }

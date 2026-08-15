@@ -44,7 +44,7 @@ namespace QuantConnect.Algorithm.CSharp
             var option = AddOption(equitySymbol);
             _optionSymbol = option.Symbol;
 
-            option.SetFilter(u => u.Strikes(-2, +2).Expiration(0, 180));
+            option.SetFilter(u => u.StandardsOnly().Strikes(-2, +2).Expiration(0, 180));
         }
 
         public override void OnData(Slice slice)
@@ -124,8 +124,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             if (positionQuantityForDeltaWithPositionGroupBuyingPowerModel != expectedQuantity)
             {
-                throw new RegressionTestException($@"Expected position quantity for delta buying power to be {expectedQuantity} but was {
-                    positionQuantityForDeltaWithPositionGroupBuyingPowerModel}");
+                throw new RegressionTestException($@"Expected position quantity for delta buying power to be {expectedQuantity} but was {positionQuantityForDeltaWithPositionGroupBuyingPowerModel}");
             }
 
             var position = positionGroup.Positions.Single();
@@ -144,8 +143,7 @@ namespace QuantConnect.Algorithm.CSharp
             if (positionQuantityForDeltaWithSecurityPositionGroupBuyingPowerModel != expectedSingleSecurityModelsQuantity ||
                 positionQuantityForDeltaWithSecurityBuyingPowerModel != expectedSingleSecurityModelsQuantity)
             {
-                throw new RegressionTestException($@"Expected order quantity for delta buying power calls from default buying power models to return {
-                    expectedSingleSecurityModelsQuantity}. Results were:" +
+                throw new RegressionTestException($@"Expected order quantity for delta buying power calls from default buying power models to return {expectedSingleSecurityModelsQuantity}. Results were:" +
                     $"    \nSecurityPositionGroupBuyingPowerModel: {positionQuantityForDeltaWithSecurityPositionGroupBuyingPowerModel}" +
                     $"    \nBuyingPowerModel: {positionQuantityForDeltaWithSecurityBuyingPowerModel}\n");
             }
@@ -164,7 +162,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 2940643;
+        public long DataPoints => 47108;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -184,7 +182,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "2"},
             {"Average Win", "0%"},
             {"Average Loss", "-0.11%"},
-            {"Compounding Annual Return", "-2.907%"},
+            {"Compounding Annual Return", "-2.788%"},
             {"Drawdown", "0.300%"},
             {"Expectancy", "-1"},
             {"Start Equity", "1000000"},
@@ -192,7 +190,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "-0.062%"},
             {"Sharpe Ratio", "-8.624"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "0.982%"},
+            {"Probabilistic Sharpe Ratio", "0%"},
             {"Loss Rate", "100%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
@@ -204,10 +202,11 @@ namespace QuantConnect.Algorithm.CSharp
             {"Tracking Error", "0.084"},
             {"Treynor Ratio", "-4.737"},
             {"Total Fees", "$19.50"},
-            {"Estimated Strategy Capacity", "$49000.00"},
-            {"Lowest Capacity Asset", "GOOCV W78ZFMML01JA|GOOCV VP83T1ZUHROL"},
+            {"Estimated Strategy Capacity", "$47000.00"},
+            {"Lowest Capacity Asset", "GOOCV W78ZFMML4BUU|GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "0.45%"},
-            {"OrderListHash", "5d2df7cb88dbc63da13518c0195eea60"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "8b8bafd11c0c2a868dbbc28db36d4ce0"}
         };
     }
 }

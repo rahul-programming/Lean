@@ -39,7 +39,7 @@ namespace QuantConnect.Algorithm.CSharp
             }
         }
 
-        public override long DataPoints => 779;
+        public override long DataPoints => 778;
 
         public override int AlgorithmHistoryDataPoints => 4;
 
@@ -56,7 +56,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "69"},
             {"Average Win", "0.18%"},
             {"Average Loss", "-0.15%"},
-            {"Compounding Annual Return", "42.429%"},
+            {"Compounding Annual Return", "42.996%"},
             {"Drawdown", "0.900%"},
             {"Expectancy", "0.367"},
             {"Start Equity", "100000"},
@@ -64,7 +64,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "2.950%"},
             {"Sharpe Ratio", "5.164"},
             {"Sortino Ratio", "8.556"},
-            {"Probabilistic Sharpe Ratio", "90.449%"},
+            {"Probabilistic Sharpe Ratio", "89.540%"},
             {"Loss Rate", "38%"},
             {"Win Rate", "62%"},
             {"Profit-Loss Ratio", "1.22"},
@@ -79,7 +79,8 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$6000000.00"},
             {"Lowest Capacity Asset", "AIG R735QTJ8XC9X"},
             {"Portfolio Turnover", "65.87%"},
-            {"OrderListHash", "15bd0a959060b7ec5d77646e7e585f04"}
+            {"Drawdown Recovery", "4"},
+            {"OrderListHash", "d527d869fde7539958e06050ee7d9951"}
         };
     }
 }

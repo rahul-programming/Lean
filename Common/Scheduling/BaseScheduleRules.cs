@@ -15,7 +15,9 @@
 */
 
 using NodaTime;
+using QuantConnect.Interfaces;
 using QuantConnect.Securities;
+using System.Collections.Generic;
 
 namespace QuantConnect.Scheduling
 {
@@ -24,6 +26,9 @@ namespace QuantConnect.Scheduling
     /// </summary>
     public class BaseScheduleRules
     {
+        private bool _sentImplicitWarning;
+        private readonly IAlgorithm _algorithm;
+
         /// <summary>
         /// The algorithm's default time zone
         /// </summary>
@@ -42,13 +47,15 @@ namespace QuantConnect.Scheduling
         /// <summary>
         /// Initializes a new instance of the <see cref="TimeRules"/> helper class
         /// </summary>
+        /// <param name="algorithm">The algorithm instance</param>
         /// <param name="securities">The security manager</param>
         /// <param name="timeZone">The algorithm's default time zone</param>
         /// <param name="marketHoursDatabase">The market hours database instance to use</param>
-        public BaseScheduleRules(SecurityManager securities, DateTimeZone timeZone, MarketHoursDatabase marketHoursDatabase)
+        public BaseScheduleRules(IAlgorithm algorithm, SecurityManager securities, DateTimeZone timeZone, MarketHoursDatabase marketHoursDatabase)
         {
-            Securities = securities;
             TimeZone = timeZone;
+            _algorithm = algorithm;
+            Securities = securities;
             MarketHoursDatabase = marketHoursDatabase;
         }
 
@@ -62,6 +69,51 @@ namespace QuantConnect.Scheduling
                 return MarketHoursDatabase.GetEntry(symbol.ID.Market, symbol, symbol.SecurityType).ExchangeHours;
             }
             return security.Exchange.Hours;
+        }
+
+        /// <summary>
+        /// Helper method to fetch the exchange hours of the securities currently in <see cref="Securities"/>
+        /// whose markets are not always open. If no such securities are present, falls back to US equities (SPY).
+        /// </summary>
+        protected IEnumerable<SecurityExchangeHours> GetMarketOpenCloseExchangeHours()
+        {
+            // Pre-seed with SPY's exchange hours: this guarantees a fallback when no eligible
+            // security is subscribed and implicitly covers every US equity, which shares the
+            // same exchange hours — so we can skip US equities below to save the lookup.
+            var hours = new HashSet<SecurityExchangeHours>
+            {
+                MarketHoursDatabase.GetEntry(Market.USA, "SPY", SecurityType.Equity).ExchangeHours
+            };
+            foreach (var (symbol, security) in Securities)
+            {
+                if (security.Type == SecurityType.Equity && symbol.ID.Market == Market.USA)
+                {
+                    continue;
+                }
+                var exchangeHours = security.Exchange.Hours;
+                if (!exchangeHours.IsMarketAlwaysOpen)
+                {
+                    hours.Add(exchangeHours);
+                }
+            }
+            return hours;
+        }
+
+        protected Symbol GetSymbol(string ticker)
+        {
+            if (SymbolCache.TryGetSymbol(ticker, out var symbolCache))
+            {
+                return symbolCache;
+            }
+
+            if (!_sentImplicitWarning)
+            {
+                _sentImplicitWarning = true;
+                _algorithm?.Debug($"Warning: no existing symbol found for ticker {ticker}, it will be created with {SecurityType.Equity} type.");
+            }
+            symbolCache = Symbol.Create(ticker, SecurityType.Equity, Market.USA);
+            SymbolCache.Set(ticker, symbolCache);
+            return symbolCache;
         }
     }
 }

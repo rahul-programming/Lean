@@ -38,7 +38,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public override long DataPoints => 194;
+        public override long DataPoints => 196;
+
+        /// <summary>
+        /// Data Points count of the algorithm history
+        /// </summary>
+        public override int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// This is used by the regression test system to indicate what the expected statistics are from running the algorithm
@@ -46,8 +51,8 @@ namespace QuantConnect.Algorithm.CSharp
         public override Dictionary<string, string> ExpectedStatistics => new Dictionary<string, string>
         {
             {"Total Orders", "2"},
-            {"Average Win", "0%"},
-            {"Average Loss", "-49.28%"},
+            {"Average Win", "10.27%"},
+            {"Average Loss", "0%"},
             {"Compounding Annual Return", "301.565%"},
             {"Drawdown", "0.300%"},
             {"Expectancy", "0"},
@@ -56,7 +61,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "10.274%"},
             {"Sharpe Ratio", "5.291"},
             {"Sortino Ratio", "384.846"},
-            {"Probabilistic Sharpe Ratio", "88.621%"},
+            {"Probabilistic Sharpe Ratio", "88.483%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
@@ -69,9 +74,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "-7.99"},
             {"Total Fees", "$0.00"},
             {"Estimated Strategy Capacity", "$0"},
-            {"Lowest Capacity Asset", "SPX XL80P3GHDZXQ|SPX 31"},
+            {"Lowest Capacity Asset", "SPX XL80P3GHIA9A|SPX 31"},
             {"Portfolio Turnover", "1.90%"},
-            {"OrderListHash", "0ed3bb17fee63ef42628f05f0c88c13c"}
+            {"Drawdown Recovery", "9"},
+            {"OrderListHash", "b2fd77dc3263ae6b61f9940fc2370235"}
         };
     }
 }

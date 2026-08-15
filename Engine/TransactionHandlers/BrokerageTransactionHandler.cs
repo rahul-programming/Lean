@@ -19,8 +19,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using QuantConnect.Algorithm;
+using QuantConnect.Algorithm.Framework.Execution;
+using QuantConnect.Algorithm.Framework.Portfolio.SignalExports;
+using QuantConnect.AlgorithmFactory.Python.Wrappers;
 using QuantConnect.Brokerages;
 using QuantConnect.Brokerages.Backtesting;
+using QuantConnect.Configuration;
 using QuantConnect.Interfaces;
 using QuantConnect.Lean.Engine.Results;
 using QuantConnect.Logging;
@@ -37,7 +42,15 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
     /// </summary>
     public class BrokerageTransactionHandler : ITransactionHandler
     {
+        /// <summary>
+        /// The tag used for order events of liquidations triggered by a delisting
+        /// </summary>
+        public static readonly string LiquidateFromDelistingTag = "Liquidate from delisting";
+
         private IAlgorithm _algorithm;
+        private QCAlgorithm _qcAlgorithmInstance;
+        private SignalExportManager _signalExport;
+        private IExecutionModel _executionModel;
         private IBrokerage _brokerage;
         private bool _brokerageIsBacktesting;
         private bool _loggedFeeAdjustmentWarning;
@@ -46,7 +59,11 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         private int _totalOrderCount;
 
         // this bool is used to check if the warning message for the rounding of order quantity has been displayed for the first time
-        private bool _firstRoundOffMessage = false;
+        private bool _firstRoundOffMessage;
+        // this bool is used to check if the warning message for price rounding has been displayed for the first time
+        private bool _hasLoggedPriceRoundingWarning;
+        // this bool is used to check if the warning message for a removed locate has been displayed for the first time
+        private bool _loggedLocateRemovedWarning;
 
         // this value is used for determining how confident we are in our cash balance update
         private long _lastFillTimeTicks;
@@ -55,13 +72,10 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         private int _failedCashSyncAttempts;
 
         /// <summary>
-        /// OrderQueue holds the newly updated orders from the user algorithm waiting to be processed. Once
-        /// orders are processed they are moved into the Orders queue awaiting the brokerage response.
+        /// Runs order requests on worker threads that pull from a single shared queue, keeping each order's
+        /// requests in order while growing the pool on demand as the threads get saturated.
         /// </summary>
-        protected IBusyCollection<OrderRequest> _orderRequestQueue { get; set; }
-
-        private Thread _processingThread;
-        private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private OrderRequestProcessingPool _threadPool;
 
         private readonly ConcurrentQueue<OrderEvent> _orderEvents = new ConcurrentQueue<OrderEvent>();
 
@@ -75,14 +89,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// The orders dictionary holds orders which are open. Status: New, Submitted, PartiallyFilled, None, CancelPending
         /// Once the transaction thread has worked on them they get put here while witing for fill updates.
         /// </summary>
-        private readonly ConcurrentDictionary<int, Order> _openOrders = new ConcurrentDictionary<int, Order>();
-
-        /// <summary>
-        /// The _openOrderTickets dictionary holds open order tickets that the algorithm can use to reference a specific order. This
-        /// includes invoking update and cancel commands. In the future, we can add more features to the ticket, such as events
-        /// and async events (such as run this code when this order fills)
-        /// </summary>
-        private readonly ConcurrentDictionary<int, OrderTicket> _openOrderTickets = new ConcurrentDictionary<int, OrderTicket>();
+        private readonly ConcurrentDictionary<int, OpenOrderState> _openOrders = new ConcurrentDictionary<int, OpenOrderState>();
 
         /// <summary>
         /// The _completeOrderTickets dictionary holds all order tickets that the algorithm can use to reference a specific order. This
@@ -154,13 +161,13 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             {
                 throw new ArgumentNullException(nameof(brokerage));
             }
-            // multi threaded queue, used for live deployments
-            _orderRequestQueue = new BusyBlockingCollection<OrderRequest>();
+
             // we don't need to do this today because we just initialized/synced
             _resultHandler = resultHandler;
 
             _brokerage = brokerage;
             _brokerageIsBacktesting = brokerage is BacktestingBrokerage;
+            _algorithm = algorithm;
 
             _brokerage.OrdersStatusChanged += (sender, orderEvents) =>
             {
@@ -202,11 +209,56 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                 HandleOrderUpdated(e);
             };
 
-            IsActive = true;
+            if (_algorithm is QCAlgorithm qcAlgorithm)
+            {
+                _qcAlgorithmInstance = qcAlgorithm;
+                _signalExport = qcAlgorithm.SignalExport;
+                _executionModel = qcAlgorithm.Execution;
+            }
+            else
+            {
+                var pyAlgorithmWrapper = _algorithm as AlgorithmPythonWrapper;
+                _qcAlgorithmInstance = pyAlgorithmWrapper.BaseAlgorithm;
+                _signalExport = pyAlgorithmWrapper.SignalExport;
+                _executionModel = pyAlgorithmWrapper.Execution;
+            }
 
-            _algorithm = algorithm;
+            NewOrderEvent += (s, e) => _signalExport.OnOrderEvent(e);
             InitializeTransactionThread();
         }
+
+        /// <summary>
+        /// Whether the transaction thread pool can grow on demand to process order requests concurrently.
+        /// When false a single worker thread is used.
+        /// </summary>
+        protected virtual bool ConcurrencyEnabled => _brokerage.ConcurrencyEnabled;
+
+        /// <summary>
+        /// Whether order requests are drained synchronously by the algorithm thread instead of by background
+        /// worker threads. Used by backtesting deployments.
+        /// </summary>
+        protected virtual bool SynchronousProcessing => false;
+
+        /// <summary>
+        /// The maximum number of transaction threads the pool can grow to
+        /// </summary>
+        protected virtual int MaximumTransactionThreads => Config.GetInt("maximum-transaction-threads", 10);
+
+        /// <summary>
+        /// The number of transaction threads the pool starts with
+        /// </summary>
+        protected virtual int MinimumTransactionThreads => Config.GetInt("minimum-transaction-threads", 2);
+
+        /// <summary>
+        /// The number of transaction threads currently running
+        /// </summary>
+        protected int ProcessingThreadsCount => _threadPool?.ThreadCount ?? 0;
+
+        /// <summary>
+        /// Boolean flag indicating the transaction threads are busy.
+        /// False indicates they are completely finished processing and ready to be terminated.
+        /// </summary>
+        public bool IsActive => _threadPool?.IsActive ?? false;
 
         /// <summary>
         /// Create and start the transaction thread, who will be in charge of processing
@@ -214,15 +266,19 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         protected virtual void InitializeTransactionThread()
         {
-            _processingThread = new Thread(Run) { IsBackground = true, Name = "Transaction Thread" };
-            _processingThread.Start();
-        }
+            Action<OrderRequest> processRequest = request =>
+            {
+                HandleOrderRequest(request);
+                ProcessAsynchronousEvents();
+            };
+            Action<Exception> onError = error => _algorithm.SetRuntimeError(error, "HandleOrderRequest");
 
-        /// <summary>
-        /// Boolean flag indicating the Run thread method is busy.
-        /// False indicates it is completely finished processing and ready to be terminated.
-        /// </summary>
-        public bool IsActive { get; private set; }
+            // backtesting drains a single queue synchronously on the algorithm thread, live deployments use
+            // background worker threads: a single one, or growing on demand up to the maximum when concurrent.
+            _threadPool = SynchronousProcessing
+                ? OrderRequestProcessingPool.Synchronous(processRequest, onError)
+                : new OrderRequestProcessingPool(ConcurrencyEnabled, MinimumTransactionThreads, MaximumTransactionThreads, processRequest, onError);
+        }
 
         #region Order Request Processing
 
@@ -288,36 +344,37 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
 
             request.SetResponse(response);
             var ticket = new OrderTicket(_algorithm.Transactions, request);
+            var security = _algorithm.Securities[request.Symbol];
+            var order = Order.CreateOrder(request);
 
             Interlocked.Increment(ref _totalOrderCount);
+
+            _completeOrderTickets.TryAdd(ticket.OrderId, ticket);
+
             // send the order to be processed after creating the ticket
             if (response.IsSuccess)
             {
-                _openOrderTickets.TryAdd(ticket.OrderId, ticket);
-                _completeOrderTickets.TryAdd(ticket.OrderId, ticket);
-                _orderRequestQueue.Add(request);
+                // save current security prices
+                order.OrderSubmissionData = new OrderSubmissionData(security.BidPrice, security.AskPrice, security.Close);
+                _openOrders[order.Id] = new OpenOrderState(order, ticket, security);
 
-                // wait for the transaction handler to set the order reference into the new order ticket,
-                // so we can ensure the order has already been added to the open orders,
-                // before returning the ticket to the algorithm.
+                _threadPool.Dispatch(request, order);
+
                 WaitForOrderSubmission(ticket);
             }
             else
             {
                 // add it to the orders collection for recall later
-                var order = Order.CreateOrder(request);
                 var orderTag = response.ErrorCode == OrderResponseErrorCode.AlgorithmWarmingUp
                     ? "Algorithm warming up."
                     : response.ErrorMessage;
 
                 // ensure the order is tagged with a currency
-                var security = _algorithm.Securities[order.Symbol];
                 order.PriceCurrency = security.SymbolProperties.QuoteCurrency;
 
                 order.Status = OrderStatus.Invalid;
                 order.Tag = orderTag;
                 ticket.SetOrder(order);
-                _completeOrderTickets.TryAdd(ticket.OrderId, ticket);
                 _completeOrders.TryAdd(order.Id, order);
 
                 HandleOrderEvent(new OrderEvent(order,
@@ -329,11 +386,17 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         }
 
         /// <summary>
-        /// Wait for the order to be handled by the <see cref="_processingThread"/>
+        /// Wait for the order to be handled by the <see cref="_threadPool"/>
         /// </summary>
         /// <param name="ticket">The <see cref="OrderTicket"/> expecting to be submitted</param>
         protected virtual void WaitForOrderSubmission(OrderTicket ticket)
         {
+            // We only wait for synchronous orders to be submitted
+            if (ticket.SubmitRequest.Asynchronous)
+            {
+                return;
+            }
+
             var orderSetTimeout = Time.OneSecond;
             if (!ticket.OrderSet.WaitOne(orderSetTimeout))
             {
@@ -349,8 +412,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// <remarks>Does not apply if the order is already fully filled</remarks>
         public OrderTicket UpdateOrder(UpdateOrderRequest request)
         {
-            OrderTicket ticket;
-            if (!_completeOrderTickets.TryGetValue(request.OrderId, out ticket))
+            if (!TryGetOrder(request.OrderId, out var order, out var ticket, out _))
             {
                 return OrderTicket.InvalidUpdateOrderId(_algorithm.Transactions, request);
             }
@@ -360,7 +422,6 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             try
             {
                 //Update the order from the behaviour
-                var order = GetOrderByIdInternal(request.OrderId);
                 var orderQuantity = request.Quantity ?? ticket.Quantity;
 
                 var shortable = true;
@@ -413,7 +474,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                 else
                 {
                     request.SetResponse(OrderResponse.Success(request), OrderRequestStatus.Processing);
-                    _orderRequestQueue.Add(request);
+                    _threadPool.Dispatch(request, order);
                 }
             }
             catch (Exception err)
@@ -431,8 +492,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// <param name="request">Request containing the specific order id to remove</param>
         public OrderTicket CancelOrder(CancelOrderRequest request)
         {
-            OrderTicket ticket;
-            if (!_completeOrderTickets.TryGetValue(request.OrderId, out ticket))
+            if (!TryGetOrder(request.OrderId, out var order, out var ticket, out _))
             {
                 Log.Error("BrokerageTransactionHandler.CancelOrder(): Unable to locate ticket for order.");
                 return OrderTicket.InvalidCancelOrderId(_algorithm.Transactions, request);
@@ -450,7 +510,6 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                 }
 
                 //Error check
-                var order = GetOrderByIdInternal(request.OrderId);
                 if (order != null && request.Tag != null)
                 {
                     order.Tag = request.Tag;
@@ -487,7 +546,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
 
                     // send the request to be processed
                     request.SetResponse(OrderResponse.Success(request), OrderRequestStatus.Processing);
-                    _orderRequestQueue.Add(request);
+                    _threadPool.Dispatch(request, order);
                 }
             }
             catch (Exception err)
@@ -516,7 +575,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// <returns>An enumerable of opened <see cref="OrderTicket"/> matching the specified <paramref name="filter"/></returns>
         public IEnumerable<OrderTicket> GetOpenOrderTickets(Func<OrderTicket, bool> filter = null)
         {
-            return _openOrderTickets.Select(x => x.Value).Where(filter ?? (x => true));
+            return _openOrders.Select(x => x.Value.Ticket).Where(filter ?? (x => true));
         }
 
         /// <summary>
@@ -551,15 +610,42 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         }
 
         /// <summary>
+        /// Tries to get the order for the specified order id.
+        /// First looks up in the open orders, then in the completed orders.
+        /// NOTE: It will only return the security if the order is still open.
+        /// </summary>
+        private bool TryGetOrder(int orderId, out Order order, out OrderTicket ticket, out Security security)
+        {
+            security = null;
+            if (_openOrders.TryGetValue(orderId, out var openOrder))
+            {
+                order = openOrder.Order;
+                ticket = openOrder.Ticket;
+                security = openOrder.Security;
+            }
+            else if (!_completeOrders.TryGetValue(orderId, out order) || !_completeOrderTickets.TryGetValue(orderId, out ticket))
+            {
+                order = null;
+                ticket = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Gets the order by its brokerage id
         /// </summary>
         /// <param name="brokerageId">The brokerage id to fetch</param>
         /// <returns>The first order matching the brokerage id, or null if no match is found</returns>
         public List<Order> GetOrdersByBrokerageId(string brokerageId)
         {
-            var openOrders = GetOrdersByBrokerageId(brokerageId, _openOrders);
+            var openOrders = GetOrdersByBrokerageId(brokerageId,
+                _openOrders.Select(kvp => KeyValuePair.Create(kvp.Key, kvp.Value.Order)));
 
-            if (openOrders.Count > 0)
+            if (openOrders.Count > 0
+                // if it's part of a group, some leg could be filled already, not part of open orders
+                && (openOrders[0].GroupOrderManager == null || openOrders[0].GroupOrderManager.Count == openOrders.Count))
             {
                 return openOrders;
             }
@@ -567,7 +653,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             return GetOrdersByBrokerageId(brokerageId, _completeOrders);
         }
 
-        private static List<Order> GetOrdersByBrokerageId(string brokerageId, ConcurrentDictionary<int, Order> orders)
+        private static List<Order> GetOrdersByBrokerageId(string brokerageId, IEnumerable<KeyValuePair<int, Order>> orders)
         {
             return orders
                 .Where(x => x.Value.BrokerId.Contains(brokerageId))
@@ -598,38 +684,22 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// <returns>All open orders this order provider currently holds</returns>
         public List<Order> GetOpenOrders(Func<Order, bool> filter = null)
         {
+            var openOrders = _openOrders.Select(kvp => kvp.Value.Order);
             if (filter != null)
             {
                 // return a clone to prevent object reference shenanigans, you must submit a request to change the order
-                return _openOrders.Select(x => x.Value).Where(filter).Select(x => x.Clone()).ToList();
+                return openOrders.Where(filter).Select(x => x.Clone()).ToList();
             }
-            return _openOrders.Select(x => x.Value).Select(x => x.Clone()).ToList();
+            return openOrders.Select(x => x.Clone()).ToList();
         }
 
         /// <summary>
-        /// Primary thread entry point to launch the transaction thread.
+        /// Drains the pending order requests on the calling thread. Used by synchronous (non concurrent)
+        /// deployments, where the algorithm thread pumps the request queue itself.
         /// </summary>
-        protected void Run()
+        protected void ProcessPendingRequests()
         {
-            try
-            {
-                foreach (var request in _orderRequestQueue.GetConsumingEnumerable(_cancellationTokenSource.Token))
-                {
-                    HandleOrderRequest(request);
-                    ProcessAsynchronousEvents();
-                }
-            }
-            catch (Exception err)
-            {
-                // unexpected error, we need to close down shop
-                _algorithm.SetRuntimeError(err, "HandleOrderRequest");
-            }
-
-            if (_processingThread != null)
-            {
-                Log.Trace("BrokerageTransactionHandler.Run(): Ending Thread...");
-                IsActive = false;
-            }
+            _threadPool.ProcessPending();
         }
 
         /// <summary>
@@ -650,12 +720,14 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             // in backtesting we need to wait for orders to be removed from the queue and finished processing
             if (!_algorithm.LiveMode)
             {
-                if (_orderRequestQueue.IsBusy && !_orderRequestQueue.WaitHandle.WaitOne(Time.OneSecond, _cancellationTokenSource.Token))
+                if (_threadPool.WaitForProcessing(Time.OneSecond))
                 {
                     Log.Error("BrokerageTransactionHandler.ProcessSynchronousEvents(): Timed out waiting for request queue to finish processing.");
                 }
                 return;
             }
+
+            _signalExport.Flush(CurrentTimeUtc);
 
             // check if the brokerage should perform cash sync now
             if (!_algorithm.IsWarmingUp && _brokerage.ShouldPerformCashSync(CurrentTimeUtc))
@@ -707,13 +779,18 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
 
             order.Id = algorithm.Transactions.GetIncrementOrderId();
 
+            if (order.GroupOrderManager != null && order.GroupOrderManager.Id == 0)
+            {
+                order.GroupOrderManager.Id = algorithm.Transactions.GetIncrementGroupOrderManagerId();
+            }
+
             var orderTicket = order.ToOrderTicket(algorithm.Transactions);
 
             SetPriceAdjustmentMode(order, algorithm);
 
-            _openOrders.AddOrUpdate(order.Id, order, (i, o) => order);
+            var openOrder = new OpenOrderState(order, orderTicket, algorithm.Securities[order.Symbol]);
+            _openOrders.AddOrUpdate(order.Id, openOrder, (i, o) => openOrder);
             _completeOrders.AddOrUpdate(order.Id, order, (i, o) => order);
-            _openOrderTickets.AddOrUpdate(order.Id, orderTicket);
             _completeOrderTickets.AddOrUpdate(order.Id, orderTicket);
 
             Interlocked.Increment(ref _totalOrderCount);
@@ -725,19 +802,27 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         public void Exit()
         {
-            var timeout = TimeSpan.FromSeconds(60);
-            if (_processingThread != null)
-            {
-                // only wait if the processing thread is running
-                if (_orderRequestQueue.IsBusy && !_orderRequestQueue.WaitHandle.WaitOne(timeout))
-                {
-                    Log.Error("BrokerageTransactionHandler.Exit(): Exceed timeout: " + (int)(timeout.TotalSeconds) + " seconds.");
-                }
-            }
+            // Dispose drains the queued requests (CompleteAdding) and waits for the threads before stopping
+            _threadPool.DisposeSafely();
+        }
 
-            _processingThread?.StopSafely(timeout, _cancellationTokenSource);
-            IsActive = false;
-            _cancellationTokenSource.DisposeSafely();
+        /// <summary>
+        /// Calculates the projected holdings for the specified security based on the current open orders.
+        /// </summary>
+        /// <param name="security">The security</param>
+        /// <returns>
+        /// The projected holdings for the specified security, which is the sum of the current holdings
+        /// plus the sum of the open orders quantity.
+        /// </returns>
+        public ProjectedHoldings GetProjectedHoldings(Security security)
+        {
+            var openOrderTickets = GetOpenOrderTickets(x => x.Symbol == security.Symbol).ToArray();
+
+            lock (_lockHandleOrderEvent)
+            {
+                var openOrderQuantity = openOrderTickets.Aggregate(0m, (d, t) => d + t.QuantityRemaining);
+                return new ProjectedHoldings(security.Holdings.Quantity, openOrderQuantity);
+            }
         }
 
         /// <summary>
@@ -745,7 +830,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         /// <param name="request"><see cref="OrderRequest"/> to be handled</param>
         /// <returns><see cref="OrderResponse"/> for request</returns>
-        public void HandleOrderRequest(OrderRequest request)
+        public virtual void HandleOrderRequest(OrderRequest request)
         {
             OrderResponse response;
             switch (request.OrderRequestType)
@@ -772,11 +857,16 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         private OrderResponse HandleSubmitOrderRequest(SubmitOrderRequest request)
         {
-            OrderTicket ticket;
-            var order = Order.CreateOrder(request);
+            if (!_openOrders.TryGetValue(request.OrderId, out var openOrder) || !_completeOrders.TryAdd(openOrder.Order.Id, openOrder.Order))
+            {
+                Log.Error("BrokerageTransactionHandler.HandleSubmitOrderRequest(): Unable to add new order, order not processed.");
+                return OrderResponse.Error(request, OrderResponseErrorCode.OrderAlreadyExists, "Cannot process submit request because order with id {0} already exists");
+            }
+
+            var order = openOrder.Order;
+            var security = openOrder.Security;
 
             // ensure the order is tagged with a currency
-            var security = _algorithm.Securities[order.Symbol];
             order.PriceCurrency = security.SymbolProperties.QuoteCurrency;
             if (string.IsNullOrEmpty(order.Tag))
             {
@@ -786,31 +876,20 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             // rounds off the order towards 0 to the nearest multiple of lot size
             order.Quantity = RoundOffOrder(order, security);
 
-            if (!_openOrders.TryAdd(order.Id, order) || !_completeOrders.TryAdd(order.Id, order))
-            {
-                Log.Error("BrokerageTransactionHandler.HandleSubmitOrderRequest(): Unable to add new order, order not processed.");
-                return OrderResponse.Error(request, OrderResponseErrorCode.OrderAlreadyExists, "Cannot process submit request because order with id {0} already exists");
-            }
-            if (!_completeOrderTickets.TryGetValue(order.Id, out ticket))
-            {
-                Log.Error("BrokerageTransactionHandler.HandleSubmitOrderRequest(): Unable to retrieve order ticket, order not processed.");
-                return OrderResponse.UnableToFindOrder(request);
-            }
-
-            var comboIsReady = order.TryGetGroupOrders(TryGetOrder, out var orders);
+            var comboIsReady = order.TryGetGroupOrders(GetComboOrderLeg, out var orders);
             var comboSecuritiesFound = orders.TryGetGroupOrdersSecurities(_algorithm.Portfolio, out var securities);
 
             // rounds the order prices
             RoundOrderPrices(order, security, comboIsReady, securities);
 
-            // save current security prices
-            order.OrderSubmissionData = new OrderSubmissionData(security.BidPrice, security.AskPrice, security.Close);
+            // drops order properties values that do not belong on this order
+            SanitizeOrderProperties(order, security);
 
             // Set order price adjustment mode
             SetPriceAdjustmentMode(order, _algorithm);
 
             // update the ticket's internal storage with this new order reference
-            ticket.SetOrder(order);
+            openOrder.Ticket.SetOrder(order);
 
             if (!comboIsReady)
             {
@@ -837,29 +916,9 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             }
 
             // check to see if we have enough money to place the order
-            HasSufficientBuyingPowerForOrderResult hasSufficientBuyingPowerResult;
-            try
+            if (!HasSufficientBuyingPowerForOrders(order, request, out var validationResult, orders, securities))
             {
-                hasSufficientBuyingPowerResult = _algorithm.Portfolio.HasSufficientBuyingPowerForOrder(orders);
-            }
-            catch (Exception err)
-            {
-                Log.Error(err);
-                _algorithm.Error($"Order Error: id: {order.Id.ToStringInvariant()}, Error executing margin models: {err.Message}");
-                HandleOrderEvent(new OrderEvent(order,
-                    _algorithm.UtcTime,
-                    OrderFee.Zero,
-                    "Error executing margin models"));
-                return OrderResponse.Error(request, OrderResponseErrorCode.ProcessingError, "Error in GetSufficientCapitalForOrder");
-            }
-
-            if (!hasSufficientBuyingPowerResult.IsSufficient)
-            {
-                var errorMessage = securities.GetErrorMessage(hasSufficientBuyingPowerResult);
-                _algorithm.Error(errorMessage);
-
-                InvalidateOrders(orders, errorMessage);
-                return OrderResponse.Error(request, OrderResponseErrorCode.InsufficientBuyingPower, errorMessage);
+                return validationResult;
             }
 
             // verify that our current brokerage can actually take the order
@@ -881,6 +940,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
 
             // set the order status based on whether or not we successfully submitted the order to the market
             bool orderPlaced;
+            var error = string.Empty;
             try
             {
                 orderPlaced = orders.All(o => _brokerage.PlaceOrder(o));
@@ -889,12 +949,13 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             {
                 Log.Error(err);
                 orderPlaced = false;
+                error = " " + err.Message;
             }
 
             if (!orderPlaced)
             {
                 // we failed to submit the order, invalidate it
-                var errorMessage = $"Brokerage failed to place orders: [{string.Join(",", orders.Select(o => o.Id))}]";
+                var errorMessage = $"Brokerage failed to place orders: [{string.Join(",", orders.Select(o => o.Id))}]{error}";
 
                 InvalidateOrders(orders, errorMessage);
                 _algorithm.Error(errorMessage);
@@ -909,9 +970,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         private OrderResponse HandleUpdateOrderRequest(UpdateOrderRequest request)
         {
-            Order order;
-            OrderTicket ticket;
-            if (!_completeOrders.TryGetValue(request.OrderId, out order) || !_completeOrderTickets.TryGetValue(request.OrderId, out ticket))
+            if (!TryGetOrder(request.OrderId, out var order, out var ticket, out var security))
             {
                 Log.Error("BrokerageTransactionHandler.HandleUpdateOrderRequest(): Unable to update order with ID " + request.OrderId);
                 return OrderResponse.UnableToFindOrder(request);
@@ -935,12 +994,12 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             }
 
             // rounds off the order towards 0 to the nearest multiple of lot size
-            var security = _algorithm.Securities[order.Symbol];
+            security ??= _algorithm.Securities[order.Symbol];
             order.Quantity = RoundOffOrder(order, security);
 
             // verify that our current brokerage can actually update the order
             BrokerageMessageEvent message;
-            if (!_algorithm.LiveMode && !_algorithm.BrokerageModel.CanUpdateOrder(_algorithm.Securities[order.Symbol], order, request, out message))
+            if (!_algorithm.LiveMode && !_algorithm.BrokerageModel.CanUpdateOrder(security, order, request, out message))
             {
                 if (message == null) message = new BrokerageMessageEvent(BrokerageMessageType.Warning, "InvalidRequest", "BrokerageModel declared unable to update order: " + order.Id);
                 var response = OrderResponse.Error(request, OrderResponseErrorCode.BrokerageModelRefusedToUpdateOrder, "OrderID: " + order.Id + " " + message);
@@ -950,6 +1009,17 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                     OrderFee.Zero,
                     "BrokerageModel declared unable to update order"));
                 return response;
+            }
+
+            // If the order is not part of a ComboLegLimit update, validate sufficient buying power
+            if (order.GroupOrderManager == null)
+            {
+                var updatedOrder = order.Clone();
+                updatedOrder.ApplyUpdateOrderRequest(request);
+                if (!HasSufficientBuyingPowerForOrders(updatedOrder, request, out var validationResult))
+                {
+                    return validationResult;
+                }
             }
 
             // modify the values of the order object
@@ -998,12 +1068,9 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         private OrderResponse HandleCancelOrderRequest(CancelOrderRequest request)
         {
-            Order order;
-            OrderTicket ticket;
-            if (!_completeOrders.TryGetValue(request.OrderId, out order) || !_completeOrderTickets.TryGetValue(request.OrderId, out ticket))
+            if (!TryGetOrder(request.OrderId, out var order, out var ticket, out _))
             {
                 Log.Error("BrokerageTransactionHandler.HandleCancelOrderRequest(): Unable to cancel order with ID " + request.OrderId + ".");
-                _cancelPendingOrders.RemoveAndFallback(order);
                 return OrderResponse.UnableToFindOrder(request);
             }
 
@@ -1050,39 +1117,84 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             return OrderResponse.Success(request);
         }
 
+        /// <summary>
+        /// Validates if there is sufficient buying power for the given order(s).
+        /// Returns an error response if validation fails or an exception occurs.
+        /// Returns null if validation passes.
+        /// </summary>
+        private bool HasSufficientBuyingPowerForOrders(Order order, OrderRequest request, out OrderResponse response, List<Order> orders = null, Dictionary<Order, Security> securities = null)
+        {
+            response = null;
+            HasSufficientBuyingPowerForOrderResult hasSufficientBuyingPowerResult;
+            try
+            {
+                hasSufficientBuyingPowerResult = _algorithm.Portfolio.HasSufficientBuyingPowerForOrder(orders ?? [order]);
+            }
+            catch (Exception err)
+            {
+                Log.Error(err);
+                _algorithm.Error($"Order Error: id: {order.Id.ToStringInvariant()}, Error executing margin models: {err.Message}");
+                HandleOrderEvent(new OrderEvent(order, _algorithm.UtcTime, OrderFee.Zero, "Error executing margin models"));
+
+                response = OrderResponse.Error(request, OrderResponseErrorCode.ProcessingError, "An error occurred while checking sufficient buying power for the orders.");
+                return false;
+            }
+
+            if (!hasSufficientBuyingPowerResult.IsSufficient)
+            {
+                var errorMessage = securities != null
+                    ? securities.GetErrorMessage(hasSufficientBuyingPowerResult)
+                    : $"Brokerage failed to update order with id: {order.Id.ToStringInvariant()}, Symbol: {order.Symbol.Value}, Insufficient buying power to complete order, Reason: {hasSufficientBuyingPowerResult.Reason}.";
+
+                _algorithm.Error(errorMessage);
+
+                if (request is UpdateOrderRequest)
+                {
+                    HandleOrderEvent(new OrderEvent(order, _algorithm.UtcTime, OrderFee.Zero, errorMessage));
+                    response = OrderResponse.Error(request, OrderResponseErrorCode.BrokerageFailedToUpdateOrder, errorMessage);
+                }
+                else
+                {
+                    InvalidateOrders(orders, errorMessage);
+                    response = OrderResponse.Error(request, OrderResponseErrorCode.InsufficientBuyingPower, errorMessage);
+                }
+                return false;
+            }
+
+            return true;
+        }
+
         private void HandleOrderEvents(List<OrderEvent> orderEvents)
         {
             lock (_lockHandleOrderEvent)
             {
                 // Get orders and tickets
-                var orders = new List<Order>(orderEvents.Count);
+                var orders = new List<OpenOrderState>(orderEvents.Count);
 
                 for (var i = 0; i < orderEvents.Count; i++)
                 {
                     var orderEvent = orderEvents[i];
 
-                    if (orderEvent.Status.IsClosed() && _openOrders.TryRemove(orderEvent.OrderId, out var order))
+                    Order order = null;
+                    OrderTicket ticket = null;
+                    Security security = null;
+                    if (orderEvent.Status.IsClosed() && _openOrders.TryRemove(orderEvent.OrderId, out var openOrder))
                     {
-                        _completeOrders[orderEvent.OrderId] = order;
+                        _completeOrders[orderEvent.OrderId] = order = openOrder.Order;
+                        _completeOrderTickets[orderEvent.OrderId] = ticket = openOrder.Ticket;
+                        security = openOrder.Security;
                     }
-                    else if (!_completeOrders.TryGetValue(orderEvent.OrderId, out order))
+                    else if (!TryGetOrder(orderEvent.OrderId, out order, out ticket, out security))
                     {
-                        Log.Error("BrokerageTransactionHandler.HandleOrderEvents(): Unable to locate open Combo Order with id " + orderEvent.OrderId);
+                        Log.Error("BrokerageTransactionHandler.HandleOrderEvents(): Unable to locate order or ticket for order ID " + orderEvent.OrderId);
                         LogOrderEvent(orderEvent);
                         return;
                     }
-                    orders.Add(order);
 
-                    if (orderEvent.Status.IsClosed() && _openOrderTickets.TryRemove(orderEvent.OrderId, out var ticket))
-                    {
-                        _completeOrderTickets[orderEvent.OrderId] = ticket;
-                    }
-                    else if (!_completeOrderTickets.TryGetValue(orderEvent.OrderId, out ticket))
-                    {
-                        Log.Error("BrokerageTransactionHandler.HandleOrderEvents(): Unable to resolve open ticket: " + orderEvent.OrderId);
-                        LogOrderEvent(orderEvent);
-                        return;
-                    }
+                    // we take the order event symbol security to make sure to match the actual traded asset:
+                    // for order exercises, the underlying security events are traded under the same option order id,
+                    // but the order event symbol is the underlying security, not the option contract.
+                    orders.Add(new OpenOrderState(order, ticket, security != null && security.Symbol == orderEvent.Symbol ? security : _algorithm.Securities[orderEvent.Symbol]));
                     orderEvent.Ticket = ticket;
                 }
 
@@ -1092,7 +1204,8 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                 for (var i = 0; i < orderEvents.Count; i++)
                 {
                     var orderEvent = orderEvents[i];
-                    var order = orders[i];
+                    var openOrder = orders[i];
+                    var order = openOrder.Order;
                     var ticket = orderEvent.Ticket;
 
                     _cancelPendingOrders.UpdateOrRemove(order.Id, orderEvent.Status);
@@ -1116,19 +1229,6 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                         case OrderStatus.PartiallyFilled:
                         case OrderStatus.Filled:
                             order.LastFillTime = orderEvent.UtcTime;
-
-                            // append fill message to order tag, for additional information
-                            if (orderEvent.Status == OrderStatus.Filled && !string.IsNullOrWhiteSpace(orderEvent.Message))
-                            {
-                                if (string.IsNullOrWhiteSpace(order.Tag))
-                                {
-                                    order.Tag = orderEvent.Message;
-                                }
-                                else
-                                {
-                                    order.Tag += " - " + orderEvent.Message;
-                                }
-                            }
                             break;
 
                         case OrderStatus.UpdateSubmitted:
@@ -1181,8 +1281,6 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                         fillsToProcess.Add(orderEvent);
                         Interlocked.Exchange(ref _lastFillTimeTicks, CurrentTimeUtc.Ticks);
 
-                        var security = _algorithm.Securities[orderEvent.Symbol];
-
                         if (orderEvent.Symbol.SecurityType == SecurityType.Crypto
                             && order.Direction == OrderDirection.Buy
                             && CurrencyPairUtil.TryDecomposeCurrencyPair(orderEvent.Symbol, out var baseCurrency, out var quoteCurrency)
@@ -1191,7 +1289,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                             // fees are in the base currency, so we have to subtract them from the filled quantity
                             // else the virtual position will bigger than the real size and we might no be able to liquidate
                             orderEvent.FillQuantity -= orderEvent.OrderFee.Value.Amount;
-                            orderEvent.OrderFee = new ModifiedFillQuantityOrderFee(orderEvent.OrderFee.Value, quoteCurrency, security.SymbolProperties.ContractMultiplier);
+                            orderEvent.OrderFee = new ModifiedFillQuantityOrderFee(orderEvent.OrderFee.Value, quoteCurrency, openOrder.Security.SymbolProperties.ContractMultiplier);
 
                             if (!_loggedFeeAdjustmentWarning)
                             {
@@ -1223,7 +1321,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
 
                     if (orderEvent.Status == OrderStatus.Filled || orderEvent.Status == OrderStatus.PartiallyFilled)
                     {
-                        var security = _algorithm.Securities[orderEvent.Symbol];
+                        var security = orders[i].Security;
 
                         var multiplier = security.SymbolProperties.ContractMultiplier;
                         var securityConversionRate = security.QuoteCurrency.ConversionRate;
@@ -1263,6 +1361,8 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
 
                     NewOrderEvent?.Invoke(this, orderEvent);
 
+                    _executionModel.OnOrderEvent(_qcAlgorithmInstance, orderEvent);
+
                     try
                     {
                         //Trigger our order event handler
@@ -1286,6 +1386,12 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
 
         private void HandleOrderUpdated(OrderUpdateEvent e)
         {
+            if (_algorithm.Status != AlgorithmStatus.Running)
+            {
+                Log.Error("BrokerageTransactionHandler.HandleOrderUpdated(): Cannot process order update when algorithm is not running.");
+                return;
+            }
+
             if (!_completeOrders.TryGetValue(e.OrderId, out var order))
             {
                 Log.Error("BrokerageTransactionHandler.HandleOrderUpdated(): Unable to locate open order with id " + e.OrderId);
@@ -1351,6 +1457,12 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         private void HandleAccountChanged(AccountEvent account)
         {
+            if (_algorithm.Status != AlgorithmStatus.Running)
+            {
+                Log.Error("BrokerageTransactionHandler.HandleAccountChanged(): Cannot process account change when algorithm is not running.");
+                return;
+            }
+
             // how close are we?
             var existingCashBalance = _algorithm.Portfolio.CashBook[account.CurrencySymbol].Amount;
             if (existingCashBalance != account.CashBalance)
@@ -1371,6 +1483,12 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         private void HandlerBrokerageOrderIdChangedEvent(BrokerageOrderIdChangedEvent brokerageOrderIdChangedEvent)
         {
+            if (_algorithm.Status != AlgorithmStatus.Running)
+            {
+                Log.Error("BrokerageTransactionHandler.HandlerBrokerageOrderIdChangedEvent(): Cannot process brokerage order id change when algorithm is not running.");
+                return;
+            }
+
             var originalOrder = GetOrderByIdInternal(brokerageOrderIdChangedEvent.OrderId);
 
             if (originalOrder == null)
@@ -1389,12 +1507,24 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         private void HandlePositionAssigned(OrderEvent fill)
         {
+            if (_algorithm.Status != AlgorithmStatus.Running)
+            {
+                Log.Error("BrokerageTransactionHandler.HandlePositionAssigned(): Cannot process position assignment when algorithm is not running.");
+                return;
+            }
+
             // informing user algorithm that option position has been assigned
             _algorithm.OnAssignmentOrderEvent(fill);
         }
 
         private void HandleDelistingNotification(DelistingNotificationEventArgs e)
         {
+            if (_algorithm.Status != AlgorithmStatus.Running)
+            {
+                Log.Error("BrokerageTransactionHandler.HandleDelistingNotification(): Cannot process delisting notification when algorithm is not running.");
+                return;
+            }
+
             if (_algorithm.Securities.TryGetValue(e.Symbol, out var security))
             {
                 // only log always in live trading, in backtesting log if not 0 holdings
@@ -1402,7 +1532,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                 {
                     Log.Trace(
                         $"BrokerageTransactionHandler.HandleDelistingNotification(): UtcTime: {CurrentTimeUtc} clearing position for delisted holding: " +
-                        $"Symbol: {e.Symbol.Value}, " +
+                        $"{e}, " +
                         $"Quantity: {security.Holdings.Quantity}");
                 }
 
@@ -1410,7 +1540,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                 var quantity = -security.Holdings.Quantity;
                 if (quantity != 0)
                 {
-                    var tag = "Liquidate from delisting";
+                    var tag = LiquidateFromDelistingTag;
 
                     // Create our order and add it
                     var order = new MarketOrder(security.Symbol, quantity, _algorithm.UtcTime, tag);
@@ -1421,7 +1551,8 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                     {
                         FillPrice = security.Price,
                         Status = OrderStatus.Filled,
-                        FillQuantity = order.Quantity
+                        FillQuantity = order.Quantity,
+                        Message = tag
                     };
 
                     // Process this order event
@@ -1435,6 +1566,12 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         private void HandleOptionNotification(OptionNotificationEventArgs e)
         {
+            if (_algorithm.Status != AlgorithmStatus.Running)
+            {
+                Log.Error("BrokerageTransactionHandler.HandleOptionNotification(): Cannot process option notification when algorithm is not running.");
+                return;
+            }
+
             if (_algorithm.Securities.TryGetValue(e.Symbol, out var security))
             {
                 // let's take the order event lock, we will be looking at orders and security holdings
@@ -1541,6 +1678,12 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         private void HandleNewBrokerageSideOrder(NewBrokerageOrderNotificationEventArgs e)
         {
+            if (_algorithm.Status != AlgorithmStatus.Running)
+            {
+                Log.Error("BrokerageTransactionHandler.HandleNewBrokerageSideOrder(): Cannot process new brokerage order when algorithm is not running.");
+                return;
+            }
+
             void onError(IReadOnlyCollection<SecurityType> supportedSecurityTypes) =>
                 _algorithm.Debug($"Warning: New brokerage-side order could not be processed due to " +
                     $"it's security not being supported. Supported security types are {string.Join(", ", supportedSecurityTypes)}");
@@ -1577,7 +1720,12 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
 
                 if (orderEvent.IsAssignment)
                 {
-                    orderEvent.Message = order.Tag;
+                    if (!string.IsNullOrEmpty(order.Tag))
+                    {
+                        orderEvent.Message = string.IsNullOrEmpty(orderEvent.Message)
+                            ? order.Tag
+                            : $"{orderEvent.Message}. {order.Tag}";
+                    }
                     HandlePositionAssigned(orderEvent);
                 }
             }
@@ -1621,6 +1769,26 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         }
 
         /// <summary>
+        /// Runs sanity checks over the order properties before the order is placed.
+        /// A check that edits the properties returns an edited copy, so the caller's own instance stays untouched.
+        /// </summary>
+        private void SanitizeOrderProperties(Order order, Security security)
+        {
+            // a locate belongs only on an order that opens a short position; brokers reject it on any other order
+            var sanitizedProperties = BrokerageExtensions.RemoveLocateFromNonShortOrder(order.Properties, order.Quantity, security.Holdings.Quantity);
+            if (sanitizedProperties != null)
+            {
+                order.Properties = sanitizedProperties;
+
+                if (!_loggedLocateRemovedWarning)
+                {
+                    _loggedLocateRemovedWarning = true;
+                    _algorithm.Error("Warning: The locate broker and locate reqd fields belong only on orders that open a short position, they were removed from the order.");
+                }
+            }
+        }
+
+        /// <summary>
         /// Rounds the order prices to its security minimum price variation.
         /// <remarks>
         /// This procedure is needed to meet brokerage precision requirements.
@@ -1628,7 +1796,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         /// </summary>
         protected void RoundOrderPrices(Order order, Security security)
         {
-            var comboIsReady = order.TryGetGroupOrders(TryGetOrder, out var orders);
+            var comboIsReady = order.TryGetGroupOrders(GetComboOrderLeg, out var orders);
             orders.TryGetGroupOrdersSecurities(_algorithm.Portfolio, out var securities);
 
             RoundOrderPrices(order, security, comboIsReady, securities);
@@ -1743,7 +1911,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             }
         }
 
-        private Order TryGetOrder(int orderId)
+        private Order GetComboOrderLeg(int orderId)
         {
             _completeOrders.TryGetValue(orderId, out var order);
             return order;
@@ -1764,11 +1932,12 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
 
         private void SendWarningOnPriceChange(string priceType, decimal priceRound, decimal priceOriginal)
         {
-            if (!priceOriginal.Equals(priceRound))
+            if (!priceOriginal.Equals(priceRound) && !_hasLoggedPriceRoundingWarning)
             {
                 _algorithm.Error(
                     $"Warning: To meet brokerage precision requirements, order {priceType.ToStringInvariant()} was rounded to {priceRound.ToStringInvariant()} from {priceOriginal.ToStringInvariant()}"
                 );
+                _hasLoggedPriceRoundingWarning = true;
             }
         }
 
@@ -1777,6 +1946,24 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             var shortableQuantity = _algorithm.ShortableQuantity(symbol);
             return $"Order exceeds shortable quantity {shortableQuantity} for Symbol {symbol} requested {quantity})";
         }
+
+        /// <summary>
+        /// Holds an order and its state
+        /// </summary>
+        private class OpenOrderState
+        {
+            public Order Order { get; }
+
+            public OrderTicket Ticket { get; }
+
+            public Security Security { get; }
+
+            public OpenOrderState(Order order, OrderTicket ticket, Security security)
+            {
+                Order = order;
+                Ticket = ticket;
+                Security = security;
+            }
+        }
     }
 }
-

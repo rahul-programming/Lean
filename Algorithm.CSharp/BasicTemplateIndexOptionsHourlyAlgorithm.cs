@@ -38,7 +38,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public override long DataPoints => 2163;
+        public override long DataPoints => 1269;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -55,33 +55,34 @@ namespace QuantConnect.Algorithm.CSharp
         /// </summary>
         public override Dictionary<string, string> ExpectedStatistics => new Dictionary<string, string>
         {
-            {"Total Orders", "81"},
+            {"Total Orders", "19"},
             {"Average Win", "0.00%"},
             {"Average Loss", "0.00%"},
-            {"Compounding Annual Return", "-0.006%"},
+            {"Compounding Annual Return", "0%"},
             {"Drawdown", "0.000%"},
-            {"Expectancy", "-0.486"},
+            {"Expectancy", "0.000"},
             {"Start Equity", "1000000"},
-            {"End Equity", "999995"},
-            {"Net Profit", "0.000%"},
-            {"Sharpe Ratio", "-101.77"},
-            {"Sortino Ratio", "-9053542.758"},
-            {"Probabilistic Sharpe Ratio", "17.439%"},
-            {"Loss Rate", "97%"},
-            {"Win Rate", "3%"},
-            {"Profit-Loss Ratio", "17.50"},
-            {"Alpha", "-0.003"},
+            {"End Equity", "1000000"},
+            {"Net Profit", "0%"},
+            {"Sharpe Ratio", "-121.988"},
+            {"Sortino Ratio", "0"},
+            {"Probabilistic Sharpe Ratio", "0.162%"},
+            {"Loss Rate", "88%"},
+            {"Win Rate", "12%"},
+            {"Profit-Loss Ratio", "7.00"},
+            {"Alpha", "-0.002"},
             {"Beta", "-0"},
             {"Annual Standard Deviation", "0"},
             {"Annual Variance", "0"},
             {"Information Ratio", "-0.449"},
             {"Tracking Error", "0.138"},
-            {"Treynor Ratio", "116.921"},
+            {"Treynor Ratio", "83.436"},
             {"Total Fees", "$0.00"},
             {"Estimated Strategy Capacity", "$0"},
-            {"Lowest Capacity Asset", "SPX XL80P59H5E6M|SPX 31"},
+            {"Lowest Capacity Asset", "SPX XL80P59H9OI6|SPX 31"},
             {"Portfolio Turnover", "0.00%"},
-            {"OrderListHash", "75e6584cb26058b09720c3a828b9fbda"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "da45ce5558560c0b2a0d5feb2ad1a585"}
         };
     }
 }

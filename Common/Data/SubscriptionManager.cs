@@ -33,7 +33,7 @@ namespace QuantConnect.Data
     {
         private readonly PriorityQueue<ConsolidatorWrapper, ConsolidatorScanPriority> _consolidatorsSortedByScanTime;
         private readonly Dictionary<IDataConsolidator, ConsolidatorWrapper> _consolidators;
-        private List<Tuple<ConsolidatorWrapper, ConsolidatorScanPriority>> _consolidatorsToAdd;
+        private List<ConsolidatorWrapper> _consolidatorsToAdd;
         private readonly object _threadSafeCollectionLock;
         private readonly ITimeKeeper _timeKeeper;
         private IAlgorithmSubscriptionManager _subscriptionManager;
@@ -47,12 +47,12 @@ namespace QuantConnect.Data
         ///     Returns an IEnumerable of Subscriptions
         /// </summary>
         /// <remarks>Will not return internal subscriptions</remarks>
-        public IEnumerable<SubscriptionDataConfig> Subscriptions => _subscriptionManager.SubscriptionManagerSubscriptions.Where(config => !config.IsInternalFeed);
+        public IEnumerable<SubscriptionDataConfig> Subscriptions => _subscriptionManager.SubscriptionManagerSubscriptions.Where(config => !config.IsInternalFeed).Memoize();
 
         /// <summary>
         ///     The different <see cref="TickType" /> each <see cref="SecurityType" /> supports
         /// </summary>
-        public Dictionary<SecurityType, List<TickType>> AvailableDataTypes => _subscriptionManager.AvailableDataTypes;
+        public Dictionary<SecurityType, List<TickType>> AvailableDataTypes => _subscriptionManager?.AvailableDataTypes;
 
         /// <summary>
         ///     Get the count of assets:
@@ -66,7 +66,7 @@ namespace QuantConnect.Data
         {
             _consolidators = new();
             _timeKeeper = timeKeeper;
-            _consolidatorsSortedByScanTime = new(1000);
+            _consolidatorsSortedByScanTime = new(1000, ConsolidatorScanPriority.Comparer);
             _threadSafeCollectionLock = new object();
         }
 
@@ -174,6 +174,11 @@ namespace QuantConnect.Data
                     symbol.Value);
             }
 
+            if (consolidator.InputType.IsAbstract && tickType == null)
+            {
+                tickType = AvailableDataTypes[symbol.SecurityType].FirstOrDefault();
+            }
+
             foreach (var subscription in subscriptions)
             {
                 // we need to be able to pipe data directly from the data feed into the consolidator
@@ -187,7 +192,7 @@ namespace QuantConnect.Data
                     lock (_threadSafeCollectionLock)
                     {
                         _consolidatorsToAdd ??= new();
-                        _consolidatorsToAdd.Add(new(wrapper, wrapper.Priority));
+                        _consolidatorsToAdd.Add(wrapper);
                     }
                     return;
                 }
@@ -211,11 +216,10 @@ namespace QuantConnect.Data
         /// <param name="pyConsolidator">The custom python consolidator</param>
         public void AddConsolidator(Symbol symbol, PyObject pyConsolidator)
         {
-            if (!pyConsolidator.TryConvert(out IDataConsolidator consolidator))
-            {
-                consolidator = new DataConsolidatorPythonWrapper(pyConsolidator);
-            }
-
+            var consolidator = PythonUtil.CreateInstanceOrWrapper<IDataConsolidator>(
+                pyConsolidator,
+                py => new DataConsolidatorPythonWrapper(py)
+            );
             AddConsolidator(symbol, consolidator);
         }
 
@@ -254,10 +258,39 @@ namespace QuantConnect.Data
         {
             if (!pyConsolidator.TryConvert(out IDataConsolidator consolidator))
             {
-                consolidator = new DataConsolidatorPythonWrapper(pyConsolidator);
+                // reuse the wrapper created when this python consolidator was added instead of building a
+                // throwaway one: a new wrapper would subscribe to the live python object's event just to be
+                // disposed again, and would leave the original wrapper's subscription leaked
+                consolidator = FindPythonConsolidator(symbol, pyConsolidator)
+                    ?? new DataConsolidatorPythonWrapper(pyConsolidator);
             }
 
             RemoveConsolidator(symbol, consolidator);
+        }
+
+        /// <summary>
+        /// Finds the <see cref="DataConsolidatorPythonWrapper"/> previously created for the given python
+        /// consolidator so it can be removed and disposed, rather than a throwaway wrapper that would churn
+        /// the live python object's event subscription and leak the original one.
+        /// </summary>
+        private IDataConsolidator FindPythonConsolidator(Symbol symbol, PyObject pyConsolidator)
+        {
+            var configs = symbol != null
+                ? _subscriptionManager.GetSubscriptionDataConfigs(symbol)
+                : Subscriptions;
+
+            foreach (var subscription in configs)
+            {
+                foreach (var existing in subscription.Consolidators)
+                {
+                    if (existing is DataConsolidatorPythonWrapper && existing.Equals(pyConsolidator))
+                    {
+                        return existing;
+                    }
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -271,7 +304,13 @@ namespace QuantConnect.Data
             {
                 lock (_threadSafeCollectionLock)
                 {
-                    _consolidatorsToAdd.DoForEach(x => _consolidatorsSortedByScanTime.Enqueue(x.Item1, x.Item2));
+                    foreach (var consolidator in _consolidatorsToAdd)
+                    {
+                        // At this point we already calculate the warm up start time, so we can reset the UtcScanTime property
+                        // To ensure correct scan times
+                        consolidator.AdvanceScanTime();
+                        _consolidatorsSortedByScanTime.Enqueue(consolidator, consolidator.Priority);
+                    }
                     _consolidatorsToAdd = null;
                 }
             }
@@ -364,24 +403,28 @@ namespace QuantConnect.Data
         /// <returns>true if the subscription is valid for the consolidator</returns>
         public static bool IsSubscriptionValidForConsolidator(SubscriptionDataConfig subscription, IDataConsolidator consolidator, TickType? desiredTickType = null)
         {
-            if (subscription.Type == typeof(Tick) &&
-                LeanData.IsCommonLeanDataType(consolidator.OutputType))
+            // Ensure the consolidator can accept data of the subscription's type
+            if (!consolidator.InputType.IsAssignableFrom(subscription.Type))
+            {
+                return false;
+            }
+
+            if (subscription.Type == typeof(Tick))
             {
                 if (desiredTickType == null)
                 {
-                    var tickType = LeanData.GetCommonTickTypeForCommonDataTypes(
-                    consolidator.OutputType,
-                    subscription.Symbol.SecurityType);
-
+                    if (!LeanData.IsCommonLeanDataType(consolidator.OutputType))
+                    {
+                        return true;
+                    }
+                    var tickType = LeanData.GetCommonTickTypeForCommonDataTypes(consolidator.OutputType, subscription.Symbol.SecurityType);
                     return subscription.TickType == tickType;
                 }
-                else if (subscription.TickType != desiredTickType)
-                {
-                    return false;
-                }
+                return subscription.TickType == desiredTickType;
             }
 
-            return consolidator.InputType.IsAssignableFrom(subscription.Type);
+            // For non-Tick data, the subscription is valid if its type is compatible with the consolidator's input type
+            return true;
         }
 
         /// <summary>

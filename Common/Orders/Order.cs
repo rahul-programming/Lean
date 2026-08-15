@@ -33,12 +33,27 @@ namespace QuantConnect.Orders
         private volatile int _incrementalId;
         private decimal _quantity;
         private decimal _price;
+        private int _id;
 
         /// <summary>
         /// Order ID.
         /// </summary>
         [JsonProperty(PropertyName = "id")]
-        public int Id { get; internal set; }
+        public int Id
+        {
+            get => _id;
+            internal set
+            {
+                _id = value;
+                if (_id != 0 && GroupOrderManager != null)
+                {
+                    lock (GroupOrderManager.OrderIds)
+                    {
+                        GroupOrderManager.OrderIds.Add(_id);
+                    }
+                }
+            }
+        }
 
         /// <summary>
         /// Order id to process before processing this order.
@@ -142,7 +157,7 @@ namespace QuantConnect.Orders
         /// Additional properties of the order
         /// </summary>
         [JsonProperty(PropertyName = "properties")]
-        public IOrderProperties Properties { get; private set; }
+        public IOrderProperties Properties { get; internal set; }
 
         /// <summary>
         /// The symbol's security type
@@ -462,13 +477,6 @@ namespace QuantConnect.Orders
             }
             order.Status = OrderStatus.New;
             order.Id = orderId;
-            if (groupOrderManager != null)
-            {
-                lock (groupOrderManager.OrderIds)
-                {
-                    groupOrderManager.OrderIds.Add(orderId);
-                }
-            }
             return order;
         }
     }

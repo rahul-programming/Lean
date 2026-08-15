@@ -71,9 +71,9 @@ namespace QuantConnect.Algorithm.CSharp
 
             var option = AddOption("AAPL");
             if (SubscriptionManager.SubscriptionDataConfigService.GetSubscriptionDataConfigs(option.Symbol)
-                .Any(config => config.Resolution != Resolution.Minute))
+                .Any(config => config.Resolution != Resolution.Daily))
             {
-                throw new RegressionTestException("Was expecting resolution to be set to Minute");
+                throw new RegressionTestException("Was expecting resolution to be set to Daily");
             }
         }
 
@@ -157,6 +157,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", ""},
             {"Portfolio Turnover", "0%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "d41d8cd98f00b204e9800998ecf8427e"}
         };
     }

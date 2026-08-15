@@ -26,6 +26,7 @@ using QuantConnect.Data.Market;
 using QuantConnect.Logging;
 using QuantConnect.Scheduling;
 using QuantConnect.Securities;
+using QuantConnect.Tests.Engine.DataFeeds;
 using QuantConnect.Util;
 
 namespace QuantConnect.Tests.Common.Scheduling
@@ -311,6 +312,151 @@ namespace QuantConnect.Tests.Common.Scheduling
             {
                 Assert.AreEqual(pair.expectedDay, pair.date.Day);
             }
+        }
+
+        [Test]
+        public void StartOfQuarterNoSymbol()
+        {
+            var rules = GetDateRules();
+            var rule = rules.QuarterStart();
+            var dates = rule.GetDates(new DateTime(2000, 01, 01), new DateTime(2000, 12, 31)).ToList();
+
+            Assert.AreEqual(4, dates.Count);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    new DateTime(2000, 1, 1),
+                    new DateTime(2000, 4, 1),
+                    new DateTime(2000, 7, 1),
+                    new DateTime(2000, 10, 1)
+                },
+                dates);
+        }
+
+        [Test]
+        public void StartOfQuarterNoSymbolMidQuarterStart()
+        {
+            var rules = GetDateRules();
+            var rule = rules.QuarterStart();
+            var dates = rule.GetDates(new DateTime(2000, 02, 15), new DateTime(2000, 12, 31)).ToList();
+
+            Assert.AreEqual(3, dates.Count);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    new DateTime(2000, 4, 1),
+                    new DateTime(2000, 7, 1),
+                    new DateTime(2000, 10, 1)
+                },
+                dates);
+        }
+
+        [Test]
+        public void StartOfQuarterNoSymbolWithOffset()
+        {
+            var rules = GetDateRules();
+            var rule = rules.QuarterStart(5);
+            var dates = rule.GetDates(new DateTime(2000, 01, 01), new DateTime(2000, 12, 31)).ToList();
+
+            Assert.AreEqual(4, dates.Count);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    new DateTime(2000, 1, 6),
+                    new DateTime(2000, 4, 6),
+                    new DateTime(2000, 7, 6),
+                    new DateTime(2000, 10, 6)
+                },
+                dates);
+        }
+
+        [Test]
+        public void StartOfQuarterWithSymbol()
+        {
+            var rules = GetDateRules();
+            var rule = rules.QuarterStart(Symbols.SPY);
+            var dates = rule.GetDates(new DateTime(2000, 01, 01), new DateTime(2000, 12, 31)).ToList();
+
+            Assert.AreEqual(4, dates.Count);
+            foreach (var date in dates)
+            {
+                Assert.AreNotEqual(DayOfWeek.Saturday, date.DayOfWeek);
+                Assert.AreNotEqual(DayOfWeek.Sunday, date.DayOfWeek);
+                Assert.Contains(date.Month, new[] { 1, 4, 7, 10 });
+                Assert.IsTrue(date.Day <= 3);
+            }
+        }
+
+        [Test]
+        public void EndOfQuarterNoSymbol()
+        {
+            var rules = GetDateRules();
+            var rule = rules.QuarterEnd();
+            var dates = rule.GetDates(new DateTime(2000, 01, 01), new DateTime(2000, 12, 31)).ToList();
+
+            Assert.AreEqual(4, dates.Count);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    new DateTime(2000, 3, 31),
+                    new DateTime(2000, 6, 30),
+                    new DateTime(2000, 9, 30),
+                    new DateTime(2000, 12, 31)
+                },
+                dates);
+        }
+
+        [Test]
+        public void EndOfQuarterNoSymbolWithOffset()
+        {
+            var rules = GetDateRules();
+            var rule = rules.QuarterEnd(5);
+            var dates = rule.GetDates(new DateTime(2000, 01, 01), new DateTime(2000, 12, 31)).ToList();
+
+            Assert.AreEqual(4, dates.Count);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    new DateTime(2000, 3, 26),
+                    new DateTime(2000, 6, 25),
+                    new DateTime(2000, 9, 25),
+                    new DateTime(2000, 12, 26)
+                },
+                dates);
+        }
+
+        [Test]
+        public void EndOfQuarterWithSymbol()
+        {
+            var rules = GetDateRules();
+            var rule = rules.QuarterEnd(Symbols.SPY);
+            var dates = rule.GetDates(new DateTime(2000, 01, 01), new DateTime(2000, 12, 31)).ToList();
+
+            Assert.AreEqual(4, dates.Count);
+            foreach (var date in dates)
+            {
+                Assert.AreNotEqual(DayOfWeek.Saturday, date.DayOfWeek);
+                Assert.AreNotEqual(DayOfWeek.Sunday, date.DayOfWeek);
+                Assert.Contains(date.Month, new[] { 3, 6, 9, 12 });
+            }
+        }
+
+        [TestCase(-1)]
+        [TestCase(93)]
+        public void QuarterStartOffsetOutOfRangeThrows(int offset)
+        {
+            var rules = GetDateRules();
+            Assert.Throws<ArgumentOutOfRangeException>(() => rules.QuarterStart(offset));
+            Assert.Throws<ArgumentOutOfRangeException>(() => rules.QuarterStart(Symbols.SPY, offset));
+        }
+
+        [TestCase(-1)]
+        [TestCase(93)]
+        public void QuarterEndOffsetOutOfRangeThrows(int offset)
+        {
+            var rules = GetDateRules();
+            Assert.Throws<ArgumentOutOfRangeException>(() => rules.QuarterEnd(offset));
+            Assert.Throws<ArgumentOutOfRangeException>(() => rules.QuarterEnd(Symbols.SPY, offset));
         }
 
         [Test]
@@ -618,6 +764,56 @@ namespace QuantConnect.Tests.Common.Scheduling
             }
         }
 
+        [TestCase(false, new int[] { 3, 10, 18, 24, 31 })]
+        [TestCase(true, new int[] { 2, 9, 16, 23, 30 })]
+        public void StartOfWeekWithSymbolUsingExtendedMarketHoursParameter(bool extendedMarketHours, int[] expectedDays)
+        {
+            var rules = GetDateRules();
+            var rule = rules.WeekStart(Symbols.Lookup(Symbols.SymbolsKey.Fut_SPY_Feb19_2016), extendedMarketHours: extendedMarketHours);
+
+            AssertDateRule(rule, new DateTime(2000, 01, 01), new DateTime(2000, 1, 31), expectedDays);
+        }
+
+        [TestCase(false, new int[] { 3, 3, 3, 2, 2 })]
+        [TestCase(true, new int[] { 3, 1, 3, 2, 2 })]
+        public void StartOfYearWithSymbolUsingExtendedMarketHoursParameter(bool extendedMarketHours, int[] expectedDays)
+        {
+            var rules = GetDateRules();
+            var rule = rules.YearStart(Symbols.Lookup(Symbols.SymbolsKey.Fut_SPY_Feb19_2016), extendedMarketHours: extendedMarketHours);
+
+            AssertDateRule(rule, new DateTime(2005, 01, 01), new DateTime(2009, 1, 31), expectedDays);
+        }
+
+        [TestCase(false, new int[] { 30, 29, 31, 31, 31})]
+        [TestCase(true, new int[] { 30, 31, 31, 31, 31 })]
+        public void EndOfYearWithSymbolUsingExtendedMarketHoursParameter(bool extendedMarketHours, int[] expectedDays)
+        {
+            var rules = GetDateRules();
+            var rule = rules.YearEnd(Symbols.Lookup(Symbols.SymbolsKey.Fut_SPY_Feb19_2016), extendedMarketHours: extendedMarketHours);
+
+            AssertDateRule(rule, new DateTime(2005, 01, 01), new DateTime(2010, 1, 1), expectedDays);
+        }
+
+        [TestCase(false, new int[] { 1, 1, 2, 1, 1 })]
+        [TestCase(true, new int[] { 1, 1, 1, 1, 1 })]
+        public void StartOfMonthWithSymbolUsingExtendedMarketHoursParameter(bool extendedMarketHours, int[] expectedDays)
+        {
+            var rules = GetDateRules();
+            var rule = rules.MonthStart(Symbols.Lookup(Symbols.SymbolsKey.Fut_SPY_Feb19_2016), extendedMarketHours: extendedMarketHours);
+
+            AssertDateRule(rule, new DateTime(2000, 08, 01), new DateTime(2000, 12, 31), expectedDays);
+        }
+
+        [TestCase(false, new int[] { 31, 29, 31, 30, 29 })]
+        [TestCase(true, new int[] { 31, 29, 31, 30, 31 })]
+        public void EndOfMonthWithSymbolUsingExtendedMarketHoursParameter(bool extendedMarketHours, int[] expectedDays)
+        {
+            var rules = GetDateRules();
+            var rule = rules.MonthEnd(Symbols.Lookup(Symbols.SymbolsKey.Fut_SPY_Feb19_2016), extendedMarketHours: extendedMarketHours);
+
+            AssertDateRule(rule, new DateTime(2000, 08, 01), new DateTime(2000, 12, 31), expectedDays);
+        }
+
         [TestCase(Symbols.SymbolsKey.SPY, new[] { 5, 12, 20, 26 })] // Set contains holiday on 1/17
         [TestCase(Symbols.SymbolsKey.BTCUSD, new[] { 4, 11, 18, 25 })]
         [TestCase(Symbols.SymbolsKey.EURUSD, new[] { 4, 11, 18, 25 })]
@@ -898,6 +1094,34 @@ wrongCustomDateRule = 1
             }
         }
 
+        [Test]
+        public void DateRuleDoesNotConflictWithTimeRuleDueToExtendedMarketHours()
+        {
+            var algorithm = new AlgorithmStub();
+            algorithm.SetDateTime(new DateTime(2024, 02, 10));
+            var es = algorithm.AddFuture("ES").Symbol;
+
+            var scheduledEvent = algorithm.Schedule.On(algorithm.Schedule.DateRules.WeekStart(es, extendedMarketHours: false),
+                algorithm.Schedule.TimeRules.AfterMarketOpen(es),
+                () => { });
+            Assert.AreEqual(new DateTime(2024, 02, 12, 14, 30, 0), scheduledEvent.NextEventUtcTime);
+        }
+
+        private static void AssertDateRule(IDateRule rule, DateTime start, DateTime end, int[] expectedDays)
+        {
+            var dates = rule.GetDates(start, end).ToList();
+
+            // Assert we have as many dates as expected
+            Assert.AreEqual(expectedDays.Length, dates.Count);
+
+            // Verify the days match up
+            var datesAndExpectedDays = dates.Zip(expectedDays, (date, expectedDay) => new { date, expectedDay });
+            foreach (var pair in datesAndExpectedDays)
+            {
+                Assert.AreEqual(pair.expectedDay, pair.date.Day);
+            }
+        }
+
         private static DateRules GetDateRules()
         {
             var mhdb = MarketHoursDatabase.FromDataFolder();
@@ -968,7 +1192,7 @@ wrongCustomDateRule = 1
                 )
             );
 
-            var rules = new DateRules(manager, TimeZones.NewYork, mhdb);
+            var rules = new DateRules(null, manager, TimeZones.NewYork, mhdb);
             return rules;
         }
     }

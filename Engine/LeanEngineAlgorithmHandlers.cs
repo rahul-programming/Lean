@@ -36,6 +36,12 @@ namespace QuantConnect.Lean.Engine
     /// </summary>
     public class LeanEngineAlgorithmHandlers : IDisposable
     {
+        private static IFactorFileProvider _factorFileProvider;
+        private static IMapFileProvider _mapfileProvider;
+        private static IDataProvider _dataProvider;
+
+        private bool _dataMonitorWired;
+
         /// <summary>
         /// Gets the result handler used to communicate results from the algorithm
         /// </summary>
@@ -111,6 +117,7 @@ namespace QuantConnect.Lean.Engine
         /// <param name="dataPermissionsManager">The data permission manager to use</param>
         /// <param name="liveMode">True for live mode, false otherwise</param>
         /// <param name="researchMode">True for research mode, false otherwise. This has less priority than liveMode</param>
+        /// <param name="dataMonitor">Optionally the data monitor instance to use</param>
         public LeanEngineAlgorithmHandlers(IResultHandler results,
             ISetupHandler setup,
             IDataFeed dataFeed,
@@ -122,7 +129,8 @@ namespace QuantConnect.Lean.Engine
             IObjectStore objectStore,
             IDataPermissionManager dataPermissionsManager,
             bool liveMode,
-            bool researchMode = false
+            bool researchMode = false,
+            IDataMonitor dataMonitor = null
             )
         {
             if (results == null)
@@ -177,12 +185,44 @@ namespace QuantConnect.Lean.Engine
             ObjectStore = objectStore;
             DataPermissionsManager = dataPermissionsManager;
             DataCacheProvider = new ZipDataCacheProvider(DataProvider, isDataEphemeral: liveMode);
-            DataMonitor = new DataMonitor();
+            DataMonitor = dataMonitor ?? new DataMonitor();
 
             if (!liveMode && !researchMode)
             {
+                _dataMonitorWired = true;
                 DataProvider.NewDataRequest += DataMonitor.OnNewDataRequest;
             }
+        }
+
+        /// <summary>
+        /// Creates and initializes the auxiliary data providers from configuration
+        /// </summary>
+        public static (IMapFileProvider, IFactorFileProvider, IDataProvider) InitializeAuxiliaryDataProviders(bool setGlobals = false)
+        {
+            if (_mapfileProvider != null)
+            {
+                Log.Trace("LeanEngineAlgorithmHandlers.InitializeAuxiliaryDataProviders(): reusing existing instances");
+                return (_mapfileProvider, _factorFileProvider, _dataProvider);
+            }
+
+            var mapFileProviderTypeName = Config.Get("map-file-provider", "LocalDiskMapFileProvider");
+            var factorFileProviderTypeName = Config.Get("factor-file-provider", "LocalDiskFactorFileProvider");
+            var dataProviderTypeName = Config.Get("data-provider", "DefaultDataProvider");
+
+            var mapFileProvider = Composer.Instance.GetExportedValueByTypeName<IMapFileProvider>(mapFileProviderTypeName);
+            var factorFileProvider = Composer.Instance.GetExportedValueByTypeName<IFactorFileProvider>(factorFileProviderTypeName);
+            var dataProvider = Composer.Instance.GetExportedValueByTypeName<IDataProvider>(dataProviderTypeName);
+
+            factorFileProvider.Initialize(mapFileProvider, dataProvider);
+            mapFileProvider.Initialize(dataProvider);
+
+            if (setGlobals)
+            {
+                _mapfileProvider = mapFileProvider;
+                _factorFileProvider = factorFileProvider;
+                _dataProvider = dataProvider;
+            }
+            return (mapFileProvider, factorFileProvider, dataProvider);
         }
 
         /// <summary>
@@ -194,16 +234,15 @@ namespace QuantConnect.Lean.Engine
         /// <exception cref="CompositionException">Throws a CompositionException during failure to load</exception>
         public static LeanEngineAlgorithmHandlers FromConfiguration(Composer composer, bool researchMode = false)
         {
+            var (mapFileProvider, factorFileProvider, dataProvider) = InitializeAuxiliaryDataProviders();
             var setupHandlerTypeName = Config.Get("setup-handler", "ConsoleSetupHandler");
             var transactionHandlerTypeName = Config.Get("transaction-handler", "BacktestingTransactionHandler");
             var realTimeHandlerTypeName = Config.Get("real-time-handler", "BacktestingRealTimeHandler");
             var dataFeedHandlerTypeName = Config.Get("data-feed-handler", "FileSystemDataFeed");
             var resultHandlerTypeName = Config.Get("result-handler", "BacktestingResultHandler");
-            var mapFileProviderTypeName = Config.Get("map-file-provider", "LocalDiskMapFileProvider");
-            var factorFileProviderTypeName = Config.Get("factor-file-provider", "LocalDiskFactorFileProvider");
-            var dataProviderTypeName = Config.Get("data-provider", "DefaultDataProvider");
             var objectStoreTypeName = Config.Get("object-store", "LocalObjectStore");
             var dataPermissionManager = Config.Get("data-permission-manager", "DataPermissionManager");
+            var dataMonitor = Config.Get("data-monitor", "QuantConnect.Data.DataMonitor");
 
             var result = new LeanEngineAlgorithmHandlers(
                 composer.GetExportedValueByTypeName<IResultHandler>(resultHandlerTypeName),
@@ -211,13 +250,14 @@ namespace QuantConnect.Lean.Engine
                 composer.GetExportedValueByTypeName<IDataFeed>(dataFeedHandlerTypeName),
                 composer.GetExportedValueByTypeName<ITransactionHandler>(transactionHandlerTypeName),
                 composer.GetExportedValueByTypeName<IRealTimeHandler>(realTimeHandlerTypeName),
-                composer.GetExportedValueByTypeName<IMapFileProvider>(mapFileProviderTypeName),
-                composer.GetExportedValueByTypeName<IFactorFileProvider>(factorFileProviderTypeName),
-                composer.GetExportedValueByTypeName<IDataProvider>(dataProviderTypeName),
+                mapFileProvider,
+                factorFileProvider,
+                dataProvider,
                 composer.GetExportedValueByTypeName<IObjectStore>(objectStoreTypeName),
                 composer.GetExportedValueByTypeName<IDataPermissionManager>(dataPermissionManager),
                 Globals.LiveMode,
-                researchMode
+                researchMode,
+                composer.GetExportedValueByTypeName<IDataMonitor>(dataMonitor)
                 );
 
             result.FactorFileProvider.Initialize(result.MapFileProvider, result.DataProvider);
@@ -246,6 +286,10 @@ namespace QuantConnect.Lean.Engine
             DataCacheProvider.DisposeSafely();
             Setup.DisposeSafely();
             ObjectStore.DisposeSafely();
+            if (_dataMonitorWired)
+            {
+                DataProvider.NewDataRequest -= DataMonitor.OnNewDataRequest;
+            }
             DataMonitor.DisposeSafely();
 
             Log.Trace("LeanEngineAlgorithmHandlers.Dispose(): Disposed of algorithm handlers.");

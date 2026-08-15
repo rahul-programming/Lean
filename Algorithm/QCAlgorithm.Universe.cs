@@ -16,6 +16,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Collections.Specialized;
+using System.Threading;
 using NodaTime;
 using QuantConnect.Algorithm.Selection;
 using QuantConnect.Data;
@@ -32,11 +34,13 @@ namespace QuantConnect.Algorithm
         // save universe additions and apply at end of time step
         // this removes temporal dependencies from w/in initialize method
         // original motivation: adding equity/options to enforce equity raw data mode
+        private static int _universeCount;
         private readonly object _pendingUniverseAdditionsLock = new object();
-        private readonly List<UserDefinedUniverseAddition> _pendingUserDefinedUniverseSecurityAdditions = new List<UserDefinedUniverseAddition>();
+        private readonly List<UserDefinedUniverseUpdate> _pendingUserDefinedUniverseSecurityChanges = new();
         private bool _pendingUniverseAdditions;
         private ConcurrentSet<Symbol> _rawNormalizationWarningSymbols = new ConcurrentSet<Symbol>();
         private readonly int _rawNormalizationWarningSymbolsMaxCount = 10;
+        private bool _coarseFineUniverseObsoleteLogSent;
 
         /// <summary>
         /// Gets universe manager which holds universes keyed by their symbol
@@ -68,19 +72,20 @@ namespace QuantConnect.Algorithm
             // rewrite securities w/ derivatives to be in raw mode
             lock (_pendingUniverseAdditionsLock)
             {
-                if (!_pendingUniverseAdditions && _pendingUserDefinedUniverseSecurityAdditions.Count == 0)
+                if (!_pendingUniverseAdditions && _pendingUserDefinedUniverseSecurityChanges.Count == 0)
                 {
                     // no point in looping through everything if there's no pending changes
                     return;
                 }
 
-                var requiredHistoryRequests = new Dictionary<Security, Resolution>();
+                var securitiesToSeed = new HashSet<Security>();
 
                 foreach (var security in Securities.Select(kvp => kvp.Value).Union(
-                    _pendingUserDefinedUniverseSecurityAdditions.Select(x => x.Security)))
+                    _pendingUserDefinedUniverseSecurityChanges.Where(x => x.IsAddition).Select(x => x.Security)))
                 {
                     // check for any derivative securities and mark the underlying as raw
-                    if (Securities.Any(skvp => skvp.Key.SecurityType != SecurityType.Base && skvp.Key.HasUnderlyingSymbol(security.Symbol)))
+                    if (security.Type == SecurityType.Equity &&
+                        Securities.Any(skvp => skvp.Key.SecurityType != SecurityType.Base && skvp.Key.HasUnderlyingSymbol(security.Symbol)))
                     {
                         // set data mode raw and default volatility model
                         ConfigureUnderlyingSecurity(security);
@@ -92,7 +97,15 @@ namespace QuantConnect.Algorithm
                     {
                         Security underlyingSecurity;
                         var underlyingSymbol = security.Symbol.Underlying;
+
                         var resolution = configs.GetHighestResolution();
+                        var isFillForward = configs.IsFillForward();
+                        if (UniverseManager.TryGetValue(security.Symbol, out var universe))
+                        {
+                            // as if the universe had selected this asset, the configuration of the canonical can be different
+                            resolution = universe.UniverseSettings.Resolution;
+                            isFillForward = universe.UniverseSettings.FillForward;
+                        }
 
                         // create the underlying security object if it doesn't already exist
                         if (!Securities.TryGetValue(underlyingSymbol, out underlyingSecurity))
@@ -101,31 +114,21 @@ namespace QuantConnect.Algorithm
                                 underlyingSymbol.Value,
                                 resolution,
                                 underlyingSymbol.ID.Market,
-                                configs.IsFillForward(),
+                                isFillForward,
                                 Security.NullLeverage,
                                 configs.IsExtendedMarketHours(),
                                 dataNormalizationMode: DataNormalizationMode.Raw);
                         }
 
                         // set data mode raw and default volatility model
-                        ConfigureUnderlyingSecurity(underlyingSecurity);
-
-                        if (LiveMode && underlyingSecurity.GetLastData() == null)
+                        if (underlyingSecurity.Symbol.SecurityType == SecurityType.Equity)
                         {
-                            if (requiredHistoryRequests.ContainsKey(underlyingSecurity))
-                            {
-                                // lets request the higher resolution
-                                var currentResolutionRequest = requiredHistoryRequests[underlyingSecurity];
-                                if (currentResolutionRequest != Resolution.Minute  // Can not be less than Minute
-                                    && resolution < currentResolutionRequest)
-                                {
-                                    requiredHistoryRequests[underlyingSecurity] = (Resolution)Math.Max((int)resolution, (int)Resolution.Minute);
-                                }
-                            }
-                            else
-                            {
-                                requiredHistoryRequests.Add(underlyingSecurity, (Resolution)Math.Max((int)resolution, (int)Resolution.Minute));
-                            }
+                            ConfigureUnderlyingSecurity(underlyingSecurity);
+                        }
+
+                        if (LiveMode && !Settings.SeedInitialPrices && underlyingSecurity.GetLastData() == null)
+                        {
+                            securitiesToSeed.Add(underlyingSecurity);
                         }
                         // set the underlying security on the derivative -- we do this in two places since it's possible
                         // to do AddOptionContract w/out the underlying already added and normalized properly
@@ -137,30 +140,32 @@ namespace QuantConnect.Algorithm
                     }
                 }
 
-                if (!requiredHistoryRequests.IsNullOrEmpty())
+                if (!securitiesToSeed.IsNullOrEmpty())
                 {
-                    // Create requests
-                    var historyRequests = Enumerable.Empty<HistoryRequest>();
-                    foreach (var byResolution in requiredHistoryRequests.GroupBy(x => x.Value))
-                    {
-                        historyRequests = historyRequests.Concat(
-                            CreateBarCountHistoryRequests(byResolution.Select(x => x.Key.Symbol), 3, byResolution.Key));
-                    }
-                    // Request data
-                    var historicLastData = History(historyRequests);
-                    historicLastData.PushThrough(x =>
-                    {
-                        var security = requiredHistoryRequests.Keys.FirstOrDefault(y => y.Symbol == x.Symbol);
-                        security?.Cache.AddData(x);
-                    });
+                    AlgorithmUtils.SeedSecurities(securitiesToSeed, this);
                 }
 
                 // add subscriptionDataConfig to their respective user defined universes
-                foreach (var userDefinedUniverseAddition in _pendingUserDefinedUniverseSecurityAdditions)
+                foreach (var userDefinedUniverseAddition in _pendingUserDefinedUniverseSecurityChanges)
                 {
-                    foreach (var subscriptionDataConfig in userDefinedUniverseAddition.SubscriptionDataConfigs)
+                    var changedCollection = false;
+                    var action = NotifyCollectionChangedAction.Add;
+                    if (userDefinedUniverseAddition.IsAddition)
                     {
-                        userDefinedUniverseAddition.Universe.Add(subscriptionDataConfig);
+                        foreach (var subscriptionDataConfig in userDefinedUniverseAddition.SubscriptionDataConfigs)
+                        {
+                            changedCollection |= userDefinedUniverseAddition.Universe.Add(subscriptionDataConfig);
+                        }
+                    }
+                    else
+                    {
+                        action = NotifyCollectionChangedAction.Replace;
+                        changedCollection |= userDefinedUniverseAddition.Universe.Remove(userDefinedUniverseAddition.Security);
+                    }
+
+                    if (changedCollection)
+                    {
+                        UniverseManager.Update(userDefinedUniverseAddition.Universe.Symbol, userDefinedUniverseAddition.Universe, action);
                     }
                 }
 
@@ -170,7 +175,7 @@ namespace QuantConnect.Algorithm
                 UniverseManager.ProcessChanges();
 
                 _pendingUniverseAdditions = false;
-                _pendingUserDefinedUniverseSecurityAdditions.Clear();
+                _pendingUserDefinedUniverseSecurityChanges.Clear();
             }
 
             if (!_rawNormalizationWarningSymbols.IsNullOrEmpty())
@@ -422,10 +427,10 @@ namespace QuantConnect.Algorithm
         }
 
         /// <summary>
-        /// Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
+        /// Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
         /// will be executed on day changes in the NewYork time zone (<see cref="TimeZones.NewYork"/>)
         /// </summary>
-        /// <param name="selector">Defines an initial coarse selection</param>
+        /// <param name="selector">Defines an initial fundamental selection</param>
         [DocumentationAttribute(Universes)]
         public Universe AddUniverse(Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector)
         {
@@ -433,11 +438,11 @@ namespace QuantConnect.Algorithm
         }
 
         /// <summary>
-        /// Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
+        /// Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
         /// will be executed based on the provided <see cref="IDateRule"/> in the NewYork time zone (<see cref="TimeZones.NewYork"/>)
         /// </summary>
         /// <param name="dateRule">Date rule that will be used to set the <see cref="Data.UniverseSelection.UniverseSettings.Schedule"/></param>
-        /// <param name="selector">Defines an initial coarse selection</param>
+        /// <param name="selector">Defines an initial fundamental selection</param>
         [DocumentationAttribute(Universes)]
         public Universe AddUniverse(IDateRule dateRule, Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector)
         {
@@ -452,9 +457,16 @@ namespace QuantConnect.Algorithm
         /// </summary>
         /// <param name="coarseSelector">Defines an initial coarse selection</param>
         /// <param name="fineSelector">Defines a more detailed selection with access to more data</param>
+        [Obsolete("This method is obsolete, please use AddUniverse(Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector) instead")]
         [DocumentationAttribute(Universes)]
         public Universe AddUniverse(Func<IEnumerable<CoarseFundamental>, IEnumerable<Symbol>> coarseSelector, Func<IEnumerable<FineFundamental>, IEnumerable<Symbol>> fineSelector)
         {
+            if (!_coarseFineUniverseObsoleteLogSent)
+            {
+                Debug("Warning: AddUniverse(coarseSelector, fineSelector) is obsolete, please use AddUniverse(Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector) instead.");
+                _coarseFineUniverseObsoleteLogSent = true;
+            }
+
             var coarse = new CoarseFundamentalUniverse(UniverseSettings, coarseSelector);
 
             return AddUniverse(new FineFundamentalFilteredUniverse(coarse, fineSelector));
@@ -581,14 +593,6 @@ namespace QuantConnect.Algorithm
                     Securities.Remove(security.Symbol);
                     Securities.Add(security);
                 }
-                else
-                {
-                    var isTradable = security.IsTradable;
-                    // We will reuse existing so we return it to the user.
-                    // We will use the IsTradable flag of the new security, since existing could of been set to false when removed
-                    security = existingSecurity;
-                    security.IsTradable = isTradable;
-                }
             }
             else
             {
@@ -633,8 +637,7 @@ namespace QuantConnect.Algorithm
             {
                 lock (_pendingUniverseAdditionsLock)
                 {
-                    _pendingUserDefinedUniverseSecurityAdditions.Add(
-                        new UserDefinedUniverseAddition(userDefinedUniverse, configurations, security));
+                    _pendingUserDefinedUniverseSecurityChanges.Add(new UserDefinedUniverseUpdate(userDefinedUniverse, configurations, security));
                 }
             }
             else
@@ -685,7 +688,7 @@ namespace QuantConnect.Algorithm
                 market ??= Market.USA;
                 if (string.IsNullOrEmpty(name))
                 {
-                    name = $"{dataType.Name}-{market}-{Guid.NewGuid()}";
+                    name = $"{dataType.Name}-{market}-{Interlocked.Increment(ref _universeCount):D10}-{Guid.NewGuid()}";
                 }
                 // same as 'AddData<>' 'T' type will be treated as custom/base data type with always open market hours
                 universeSymbol = QuantConnect.Symbol.Create(name, SecurityType.Base, market, baseDataType: dataType);
@@ -731,13 +734,14 @@ namespace QuantConnect.Algorithm
         /// Helper class used to store <see cref="UserDefinedUniverse"/> additions.
         /// They will be consumed at <see cref="OnEndOfTimeStep"/>
         /// </summary>
-        private class UserDefinedUniverseAddition
+        private class UserDefinedUniverseUpdate
         {
+            public bool IsAddition => SubscriptionDataConfigs != null;
             public Security Security { get; }
             public UserDefinedUniverse Universe { get; }
             public List<SubscriptionDataConfig> SubscriptionDataConfigs { get; }
 
-            public UserDefinedUniverseAddition(
+            public UserDefinedUniverseUpdate(
                 UserDefinedUniverse universe,
                 List<SubscriptionDataConfig> subscriptionDataConfigs,
                 Security security)

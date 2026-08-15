@@ -135,7 +135,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 60;
+        public int AlgorithmHistoryDataPoints => 10;
 
         /// <summary>
         /// Final status of the algorithm
@@ -153,8 +153,8 @@ namespace QuantConnect.Algorithm.CSharp
             {"Compounding Annual Return", "0%"},
             {"Drawdown", "0%"},
             {"Expectancy", "0"},
-            {"Start Equity", "117171.12"},
-            {"End Equity", "117244.50"},
+            {"Start Equity", "117170.74"},
+            {"End Equity", "117244.52"},
             {"Net Profit", "0%"},
             {"Sharpe Ratio", "0"},
             {"Sortino Ratio", "0"},
@@ -173,7 +173,8 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "₮560000.00"},
             {"Lowest Capacity Asset", "BTCUSDT 2UZ"},
             {"Portfolio Turnover", "44.04%"},
-            {"OrderListHash", "7426da82dca9e493acbc53c7b9f449f0"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "47580e88a8cc54b04f3b2bcb5d501150"}
         };
     }
 }

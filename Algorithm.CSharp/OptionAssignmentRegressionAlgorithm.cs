@@ -14,11 +14,13 @@
  *
 */
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using QuantConnect.Data;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
+using QuantConnect.Statistics;
 
 namespace QuantConnect.Algorithm.CSharp
 {
@@ -46,7 +48,7 @@ namespace QuantConnect.Algorithm.CSharp
             SetCash(100000);
             Stock = AddEquity("GOOG", Resolution.Minute);
 
-            var contracts = OptionChainProvider.GetOptionContractList(Stock.Symbol, UtcTime).ToList();
+            var contracts = OptionChain(Stock.Symbol).ToList();
 
             PutOptionSymbol = contracts
                 .Where(c => c.ID.OptionRight == OptionRight.Put)
@@ -79,6 +81,37 @@ namespace QuantConnect.Algorithm.CSharp
             }
         }
 
+        private Security GetSecurity(Symbol symbol)
+        {
+            if (symbol == Stock.Symbol)
+            {
+                return Stock;
+            }
+            if (symbol == CallOptionSymbol)
+            {
+                return CallOption;
+            }
+            if (symbol == PutOptionSymbol)
+            {
+                return PutOption;
+            }
+            throw new RegressionTestException($"Unexpected symbol: {symbol}");
+        }
+
+        public override void OnEndOfAlgorithm()
+        {
+            foreach (var trade in TradeBuilder.ClosedTrades)
+            {
+                var direction = trade.Direction == TradeDirection.Long ? 1m : -1m;
+                var expectedProfitLoss = Math.Round((trade.ExitPrice - trade.EntryPrice) * trade.Quantity * direction * GetSecurity(trade.Symbols.Single()).SymbolProperties.ContractMultiplier, 2);
+
+                if (trade.ProfitLoss != expectedProfitLoss)
+                {
+                    throw new RegressionTestException($"Expected underlying trade profit/loss to be {expectedProfitLoss}. Actual: {trade.ProfitLoss}");
+                }
+            }
+        }
+
         /// <summary>
         /// This is used by the regression test system to indicate if the open source Lean repository has the required data to run this algorithm.
         /// </summary>
@@ -87,17 +120,17 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// This is used by the regression test system to indicate which languages this algorithm is written in.
         /// </summary>
-        public virtual List<Language> Languages { get; } = new() { Language.CSharp };
+        public virtual List<Language> Languages { get; } = new() { Language.CSharp, Language.Python };
 
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 4025;
+        public long DataPoints => 4026;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -120,7 +153,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "-2.886%"},
             {"Sharpe Ratio", "-7.473"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "1.125%"},
+            {"Probabilistic Sharpe Ratio", "0.159%"},
             {"Loss Rate", "75%"},
             {"Win Rate", "25%"},
             {"Profit-Loss Ratio", "0.57"},
@@ -133,9 +166,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "-0.229"},
             {"Total Fees", "$16.00"},
             {"Estimated Strategy Capacity", "$710000.00"},
-            {"Lowest Capacity Asset", "GOOCV 305RBQ20WHPNQ|GOOCV VP83T1ZUHROL"},
+            {"Lowest Capacity Asset", "GOOCV 305RBQ20WLZZA|GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "218.80%"},
-            {"OrderListHash", "84dbd164000f9fb9096c14cbcd0b3e15"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "590ba58e303f1f60f855f458300d08af"}
         };
     }
 }

@@ -31,7 +31,7 @@ namespace QuantConnect.Tests.API
     /// <summary>
     /// API Project endpoints, includes some Backtest endpoints testing as well
     /// </summary>
-    [TestFixture, Explicit("Requires configured api access and available backtest node to run on")]
+    [TestFixture, Explicit("Requires configured api access and available backtest node to run on"), Parallelizable(ParallelScope.Fixtures)]
     public class ProjectTests : ApiTestBase
     {
         private readonly Dictionary<string, object> _defaultSettings = new Dictionary<string, object>()
@@ -83,6 +83,8 @@ namespace QuantConnect.Tests.API
 
             //Test create a new project successfully
             var project = ApiClient.CreateProject(name, Language.CSharp, TestOrganization);
+            var stringRepresentation = project.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
             Assert.IsTrue(project.Success);
             Assert.Greater(project.Projects.First().ProjectId, 0);
             Assert.AreEqual(name, project.Projects.First().Name);
@@ -92,8 +94,11 @@ namespace QuantConnect.Tests.API
             Assert.IsTrue(deleteProject.Success);
 
             // Make sure the project is really deleted
+            // The API soft deletes projects (moves them to "Recycle Bin/..."), so exclude those
             var projectList = ApiClient.ListProjects();
-            Assert.IsFalse(projectList.Projects.Any(p => p.ProjectId == project.Projects.First().ProjectId));
+            Assert.IsFalse(projectList.Projects
+                .Where(p => !p.Name.StartsWith("Recycle Bin/", StringComparison.Ordinal))
+                .Any(p => p.ProjectId == project.Projects.First().ProjectId));
         }
 
         /// <summary>
@@ -122,6 +127,8 @@ namespace QuantConnect.Tests.API
 
             // Add random file
             var randomAdd = ApiClient.AddProjectFile(TestProject.ProjectId, fakeFile.Name, fakeFile.Code);
+            var stringRepresentation = randomAdd.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
             Assert.IsTrue(randomAdd.Success);
             // Update names of file
             var updatedName = ApiClient.UpdateProjectFileName(TestProject.ProjectId, fakeFile.Name, realFile.Name);
@@ -133,6 +140,8 @@ namespace QuantConnect.Tests.API
 
             // Read single file
             var readFile = ApiClient.ReadProjectFile(TestProject.ProjectId, realFile.Name);
+            stringRepresentation = readFile.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
             Assert.IsTrue(readFile.Success);
             Assert.IsTrue(readFile.Files.First().Code == realFile.Code);
             Assert.IsTrue(readFile.Files.First().Name == realFile.Name);
@@ -165,6 +174,8 @@ namespace QuantConnect.Tests.API
         {
             // Read the nodes
             var nodesResponse = ApiClient.ReadProjectNodes(TestProject.ProjectId);
+            var stringRepresentation = nodesResponse.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
             Assert.IsTrue(nodesResponse.Success);
             Assert.Greater(nodesResponse.Nodes.BacktestNodes.Count, 0);
 
@@ -224,7 +235,7 @@ namespace QuantConnect.Tests.API
             Perform_CreateCompileBackTest_Tests(projectName, language, algorithmName, code);
         }
 
-        private void Perform_CreateCompileBackTest_Tests(string projectName, Language language, string algorithmName, string code)
+        private void Perform_CreateCompileBackTest_Tests(string projectName, Language language, string algorithmName, string code, string expectedStatus = "Completed.")
         {
             //Test create a new project successfully
             var project = ApiClient.CreateProject(projectName, language, TestOrganization);
@@ -257,7 +268,7 @@ namespace QuantConnect.Tests.API
             Assert.AreEqual(CompileState.InQueue, compileCreate.State);
 
             // Read out the compile
-            var compileSuccess = WaitForCompilerResponse(project.Projects.First().ProjectId, compileCreate.CompileId);
+            var compileSuccess = WaitForCompilerResponse(ApiClient, project.Projects.First().ProjectId, compileCreate.CompileId);
             Assert.IsTrue(compileSuccess.Success);
             Assert.AreEqual(CompileState.BuildSuccess, compileSuccess.State);
 
@@ -265,47 +276,59 @@ namespace QuantConnect.Tests.API
             file.Code += "[Jibberish at end of the file to cause a build error]";
             ApiClient.UpdateProjectFileContent(project.Projects.First().ProjectId, file.Name, file.Code);
             var compileError = ApiClient.CreateCompile(project.Projects.First().ProjectId);
-            compileError = WaitForCompilerResponse(project.Projects.First().ProjectId, compileError.CompileId);
+            compileError = WaitForCompilerResponse(ApiClient, project.Projects.First().ProjectId, compileError.CompileId);
             Assert.IsTrue(compileError.Success); // Successfully processed rest request.
             Assert.AreEqual(CompileState.BuildError, compileError.State); //Resulting in build fail.
 
             // Using our successful compile; launch a backtest!
-            var backtestName = $"{DateTime.UtcNow.ToStringInvariant("u")} API Backtest";
+            var backtestName = $"{DateTime.UtcNow.ToStringInvariant("yyyy-MM-dd HH-mm-ss")} API Backtest";
             var backtest = ApiClient.CreateBacktest(project.Projects.First().ProjectId, compileSuccess.CompileId, backtestName);
             Assert.IsTrue(backtest.Success);
 
             // Now read the backtest and wait for it to complete
-            var backtestRead = WaitForBacktestCompletion(project.Projects.First().ProjectId, backtest.BacktestId);
+            var backtestRead = WaitForBacktestCompletion(ApiClient, project.Projects.First().ProjectId, backtest.BacktestId, secondsTimeout: 600, returnFailedBacktest: true);
             Assert.IsTrue(backtestRead.Success);
-            Assert.AreEqual(1, backtestRead.Progress);
-            Assert.AreEqual(backtestName, backtestRead.Name);
-            Assert.AreEqual("1", backtestRead.Statistics["Total Orders"]);
-            Assert.Greater(backtestRead.Charts["Benchmark"].Series.Count, 0);
 
-            // In the same way, read the orders returned in the backtest
-            var backtestOrdersRead = ApiClient.ReadBacktestOrders(project.Projects.First().ProjectId, backtest.BacktestId, 0, 1);
-            Assert.IsTrue(backtestOrdersRead.Any());
-            Assert.AreEqual(Symbols.SPY.Value, backtestOrdersRead.First().Symbol.Value);
+            // Backtest completed, let's wait a second to allow status update
+            backtestRead = ApiClient.ReadBacktest(project.Projects.First().ProjectId, backtestRead.BacktestId);
+            Assert.AreEqual(expectedStatus, backtestRead.Status);
 
-            // Verify we have the backtest in our project
-            var listBacktests = ApiClient.ListBacktests(project.Projects.First().ProjectId);
-            Assert.IsTrue(listBacktests.Success);
-            Assert.GreaterOrEqual(listBacktests.Backtests.Count, 1);
-            Assert.AreEqual(backtestName, listBacktests.Backtests[0].Name);
+            if (expectedStatus == "Runtime Error")
+            {
+                Assert.IsTrue(backtestRead.Error.Contains("Intentional Failure", StringComparison.InvariantCulture) || backtestRead.HasInitializeError);
+            }
+            else
+            {
+                Assert.AreEqual(1, backtestRead.Progress);
+                Assert.AreEqual(backtestName, backtestRead.Name);
+                Assert.AreEqual("1", backtestRead.Statistics["Total Orders"]);
+                Assert.Greater(backtestRead.Charts["Benchmark"].Series.Count, 0);
 
-            // Update the backtest name and test its been updated
-            backtestName += "-Amendment";
-            var renameBacktest = ApiClient.UpdateBacktest(project.Projects.First().ProjectId, backtest.BacktestId, backtestName);
-            Assert.IsTrue(renameBacktest.Success);
-            backtestRead = ApiClient.ReadBacktest(project.Projects.First().ProjectId, backtest.BacktestId);
-            Assert.AreEqual(backtestName, backtestRead.Name);
+                // In the same way, read the orders returned in the backtest
+                var backtestOrdersRead = ApiClient.ReadBacktestOrders(project.Projects.First().ProjectId, backtest.BacktestId, 0, 1);
+                Assert.IsTrue(backtestOrdersRead.Any());
+                Assert.AreEqual(Symbols.SPY.Value, backtestOrdersRead.First().Symbol.Value);
 
-            //Update the note and make sure its been updated:
-            var newNote = DateTime.Now.ToStringInvariant("u");
-            var noteBacktest = ApiClient.UpdateBacktest(project.Projects.First().ProjectId, backtest.BacktestId, note: newNote);
-            Assert.IsTrue(noteBacktest.Success);
-            backtestRead = ApiClient.ReadBacktest(project.Projects.First().ProjectId, backtest.BacktestId);
-            Assert.AreEqual(newNote, backtestRead.Note);
+                // Verify we have the backtest in our project
+                var listBacktests = ApiClient.ListBacktests(project.Projects.First().ProjectId);
+                Assert.IsTrue(listBacktests.Success);
+                Assert.GreaterOrEqual(listBacktests.Backtests.Count, 1);
+                Assert.AreEqual(backtestName, listBacktests.Backtests[0].Name);
+
+                // Update the backtest name and test its been updated
+                backtestName += "-Amendment";
+                var renameBacktest = ApiClient.UpdateBacktest(project.Projects.First().ProjectId, backtest.BacktestId, backtestName);
+                Assert.IsTrue(renameBacktest.Success);
+                backtestRead = ApiClient.ReadBacktest(project.Projects.First().ProjectId, backtest.BacktestId);
+                Assert.AreEqual(backtestName, backtestRead.Name);
+
+                //Update the note and make sure its been updated:
+                var newNote = DateTime.Now.ToStringInvariant("yyyy-MM-dd HH-mm-ss");
+                var noteBacktest = ApiClient.UpdateBacktest(project.Projects.First().ProjectId, backtest.BacktestId, note: newNote);
+                Assert.IsTrue(noteBacktest.Success);
+                backtestRead = ApiClient.ReadBacktest(project.Projects.First().ProjectId, backtest.BacktestId);
+                Assert.AreEqual(newNote, backtestRead.Note);
+            }
 
             // Delete the backtest we just created
             var deleteBacktest = ApiClient.DeleteBacktest(project.Projects.First().ProjectId, backtest.BacktestId);
@@ -336,7 +359,7 @@ namespace QuantConnect.Tests.API
                 $"Error updating project file:\n    {string.Join("\n    ", updateProjectFileContent.Errors)}");
 
             var compileCreate = ApiClient.CreateCompile(project.ProjectId);
-            var compileSuccess = WaitForCompilerResponse(project.ProjectId, compileCreate.CompileId);
+            var compileSuccess = WaitForCompilerResponse(ApiClient, project.ProjectId, compileCreate.CompileId);
             Assert.IsTrue(compileSuccess.Success, $"Error compiling project:\n    {string.Join("\n    ", compileSuccess.Errors)}");
 
             var backtestName = $"ReadBacktestOrders Backtest {GetTimestamp()}";
@@ -347,12 +370,20 @@ namespace QuantConnect.Tests.API
             Assert.IsTrue(backtestRead.Success);
 
             // Now wait until the backtest is completed and request the orders again
-            backtestRead = WaitForBacktestCompletion(project.ProjectId, backtest.BacktestId);
+            backtestRead = WaitForBacktestCompletion(ApiClient, project.ProjectId, backtest.BacktestId);
             var backtestOrdersRead = ApiClient.ReadBacktestOrders(project.ProjectId, backtest.BacktestId);
+            string stringRepresentation;
+            foreach (var backtestOrder in backtestOrdersRead)
+            {
+                stringRepresentation = backtestOrder.ToString();
+                Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
+            }
             Assert.IsTrue(backtestOrdersRead.Any());
             Assert.AreEqual(Symbols.SPY.Value, backtestOrdersRead.First().Symbol.Value);
 
             var readBacktestReport = ApiClient.ReadBacktestReport(project.ProjectId, backtest.BacktestId);
+            stringRepresentation = readBacktestReport.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
             Assert.IsTrue(readBacktestReport.Success);
             Assert.IsFalse(string.IsNullOrEmpty(readBacktestReport.Report));
 
@@ -362,6 +393,8 @@ namespace QuantConnect.Tests.API
                 new DateTime(2013, 10, 11).Second,
                 1000,
                 backtest.BacktestId);
+            stringRepresentation = readBacktestChart.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
             Assert.IsTrue(readBacktestChart.Success);
             Assert.IsNotNull(readBacktestChart.Chart);
 
@@ -379,7 +412,7 @@ namespace QuantConnect.Tests.API
         {
             // We will be using the existing TestBacktest for this test
             var originalName = TestBacktest.Name;
-            var newName = $"{originalName} - Amended - {DateTime.UtcNow.ToStringInvariant("u")}";
+            var newName = $"{originalName} - Amended - {DateTime.UtcNow.ToStringInvariant("yyyy-MM-dd HH-mm-ss")}";
 
             // Update the backtest name
             var updateResult = ApiClient.UpdateBacktest(TestProject.ProjectId, TestBacktest.BacktestId, name: newName);
@@ -474,6 +507,8 @@ namespace QuantConnect.Tests.API
 
             // Read the backtest and verify the tags were added
             var backtestsResult = ApiClient.ListBacktests(TestProject.ProjectId);
+            var stringRepresentation = backtestsResult.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
             Assert.IsTrue(backtestsResult.Success, $"Error getting backtests:\n    {string.Join("\n    ", backtestsResult.Errors)}");
             Assert.AreEqual(1, backtestsResult.Backtests.Count);
             CollectionAssert.AreEquivalent(tags, backtestsResult.Backtests[0].Tags);
@@ -498,9 +533,13 @@ namespace QuantConnect.Tests.API
                 // Create backtest
                 var backtestName = $"ReadBacktestOrders Backtest {GetTimestamp()}";
                 var backtest = ApiClient.CreateBacktest(projectId, compileId, backtestName);
+                var stringRepresentation = backtest.ToString();
+                Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
 
                 // Try to read the insights from the algorithm
                 var readInsights = ApiClient.ReadBacktestInsights(projectId, backtest.BacktestId, 0, 5);
+                stringRepresentation = readInsights.ToString();
+                Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
                 var finish = DateTime.UtcNow.AddMinutes(2);
                 do
                 {
@@ -556,10 +595,12 @@ namespace QuantConnect.Tests.API
 
             // Create compile
             var compile = ApiClient.CreateCompile(projectId);
+            var stringRepresentation = compile.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
             Assert.IsTrue(compile.Success);
 
             // Wait at max 30 seconds for project to compile
-            var compileCheck = WaitForCompilerResponse(projectId, compile.CompileId);
+            var compileCheck = WaitForCompilerResponse(ApiClient, projectId, compile.CompileId);
             Assert.IsTrue(compileCheck.Success);
             Assert.IsTrue(compileCheck.State == CompileState.BuildSuccess);
 
@@ -573,10 +614,14 @@ namespace QuantConnect.Tests.API
             {
                 // Create live default algorithm
                 var createLiveAlgorithm = ApiClient.CreateLiveAlgorithm(projectId, compile.CompileId, freeNode.FirstOrDefault().Id, _defaultSettings, dataProviders: dataProviders);
+                stringRepresentation = createLiveAlgorithm.ToString();
+                Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
                 Assert.IsTrue(createLiveAlgorithm.Success, $"ApiClient.CreateLiveAlgorithm(): Error: {string.Join(",", createLiveAlgorithm.Errors)}");
 
                 // Read live algorithm
                 var readLiveAlgorithm = ApiClient.ReadLiveAlgorithm(projectId, createLiveAlgorithm.DeployId);
+                stringRepresentation = readLiveAlgorithm.ToString();
+                Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
                 Assert.IsTrue(readLiveAlgorithm.Success, $"ApiClient.ReadLiveAlgorithm(): Error: {string.Join(",", readLiveAlgorithm.Errors)}");
 
                 // Stop the algorithm
@@ -588,6 +633,8 @@ namespace QuantConnect.Tests.API
                 Assert.IsNotNull(readChart.Chart);
 
                 var readLivePortfolio = ApiClient.ReadLivePortfolio(projectId);
+                stringRepresentation = readLivePortfolio.ToString();
+                Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
                 Assert.IsTrue(readLivePortfolio.Success, $"ApiClient.ReadLivePortfolio(): Error: {string.Join(",", readLivePortfolio.Errors)}");
                 Assert.IsNotNull(readLivePortfolio.Portfolio, "Portfolio was null!");
                 Assert.IsNotNull(readLivePortfolio.Portfolio.Cash, "Portfolio.Cash was null!");
@@ -599,7 +646,7 @@ namespace QuantConnect.Tests.API
                 Assert.IsTrue(readLiveLogs.Length >= 0, "The length of the logs was negative!");
                 Assert.IsTrue(readLiveLogs.DeploymentOffset >= 0, "The deploymentOffset");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 // Delete the project in case of an error
                 Assert.IsTrue(ApiClient.DeleteProject(projectId).Success);
@@ -615,6 +662,8 @@ namespace QuantConnect.Tests.API
         public void ReadVersionsWorksAsExpected()
         {
             var result = ApiClient.ReadLeanVersions();
+            var stringRepresentation = result.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
             Assert.IsTrue(result.Success);
             Assert.IsNotEmpty(result.Versions);
         }
@@ -642,7 +691,7 @@ namespace QuantConnect.Tests.API
             Assert.IsTrue(compile.Success);
 
             // Wait at max 30 seconds for project to compile
-            var compileCheck = WaitForCompilerResponse(projectId, compile.CompileId);
+            var compileCheck = WaitForCompilerResponse(ApiClient, projectId, compile.CompileId);
             Assert.IsTrue(compileCheck.Success);
             Assert.IsTrue(compileCheck.State == CompileState.BuildSuccess);
 
@@ -650,7 +699,7 @@ namespace QuantConnect.Tests.API
             var backtest = ApiClient.CreateBacktest(projectId, compile.CompileId, backtestName);
 
             // Now wait until the backtest is completed and request the orders again
-            var backtestReady = WaitForBacktestCompletion(projectId, backtest.BacktestId);
+            var backtestReady = WaitForBacktestCompletion(ApiClient, projectId, backtest.BacktestId);
             Assert.IsTrue(backtestReady.Success);
 
             var optimization = ApiClient.CreateOptimization(
@@ -673,6 +722,8 @@ namespace QuantConnect.Tests.API
                 nodeType: OptimizationNodes.O2_8,
                 parallelNodes: 12
             );
+            var stringRepresentation = optimization.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
 
             var finish = DateTime.UtcNow.AddMinutes(5);
             var readOptimization = ApiClient.ReadOptimization(optimization.OptimizationId);
@@ -682,6 +733,8 @@ namespace QuantConnect.Tests.API
                 readOptimization = ApiClient.ReadOptimization(optimization.OptimizationId);
             }
             while (finish > DateTime.UtcNow && readOptimization.Status != OptimizationStatus.Completed);
+            stringRepresentation = readOptimization.ToString();
+            Assert.IsTrue(ApiTestBase.IsValidJson(stringRepresentation));
 
             Assert.IsNotNull(optimization);
             Assert.IsNotEmpty(optimization.OptimizationId);
@@ -726,9 +779,73 @@ namespace QuantConnect.Tests.API
             compileId = compile.CompileId;
 
             // Wait at max 30 seconds for project to compile
-            var compileCheck = WaitForCompilerResponse(projectId, compile.CompileId);
+            var compileCheck = WaitForCompilerResponse(ApiClient, projectId, compile.CompileId);
             Assert.IsTrue(compileCheck.Success);
             Assert.IsTrue(compileCheck.State == CompileState.BuildSuccess);
+        }
+
+        /// <summary>
+        /// Test creating, compiling and backtesting a failure C# project via the Api
+        /// </summary>
+        [TestCase("Constructor")]
+        [TestCase("Initialize")]
+        [TestCase("OnData")]
+
+        public void CSharpProject_CreatedCompiledAndBacktested_Unsuccessully(string section)
+        {
+            var language = Language.CSharp;
+            var code = File.ReadAllText("../../../Algorithm.CSharp/BasicTemplateAlgorithm.cs");
+            if (section == "Constructor")
+            {
+                code = code.Replace("private Symbol _spy = QuantConnect.Symbol.Create(\"SPY\", SecurityType.Equity, Market.USA);",
+                    "private Symbol _spy = QuantConnect.Symbol.Create(\"SPY\", SecurityType.Equity, Market.USA);" +
+                    "public BasicTemplateAlgorithm(): base() { throw new RegressionTestException(\"Intentional Failure\"); }", StringComparison.InvariantCulture);
+            }
+            else if (section == "Initialize")
+            {
+                code = code.Replace("SetStartDate(2013, 10, 07);", "throw new RegressionTestException($\"Intentional Failure\");", StringComparison.InvariantCulture);
+            }
+            else if (section == "OnData")
+            {
+                code = code.Replace("Debug(\"Purchased Stock\");", "throw new RegressionTestException($\"Intentional Failure\");", StringComparison.InvariantCulture);
+            }
+            var algorithmName = "Main.cs";
+            var projectName = $"{GetTimestamp()} Test {TestAccount} Lang {language}";
+
+            Perform_CreateCompileBackTest_Tests(projectName, language, algorithmName, code, "Runtime Error");
+        }
+
+        /// <summary>
+        /// Test creating, compiling and backtesting a failure Python project via the Api
+        /// </summary>
+        [TestCase("Constructor")]
+        [TestCase("Initialize")]
+        [TestCase("OnData")]
+
+        public void PythonProject_CreatedCompiledAndBacktested_Unsuccessully(string section)
+        {
+            var language = Language.Python;
+            var code = File.ReadAllText("../../../Algorithm.Python/BasicTemplateAlgorithm.py");
+            if (section == "Constructor")
+            {
+                code = code.Replace("self.set_start_date(2013,10, 7)  #Set Start Date",
+                    "self.set_start_date(2013,10, 7)  #Set Start Date\n" +
+                    "    def __init__(self):\r\n        super().__init__()\r\n        raise Exception(\"Intentional Failure\")", StringComparison.InvariantCulture);
+            }
+            else if (section == "Initialize")
+            {
+                code = code.Replace("self.set_start_date(2013,10, 7)  #Set Start Date", "raise Exception(\"Intentional Failure\")", StringComparison.InvariantCulture);
+            }
+            else if (section == "OnData")
+            {
+                code = code.Replace("self.set_holdings(\"SPY\", 1)",
+                    "self.set_holdings(\"SPY\", 1)\r\n" +
+                    "        raise Exception(\"Intentional Failure\")", StringComparison.InvariantCulture);
+            }
+            var algorithmName = "main.py";
+            var projectName = $"{GetTimestamp()} Test {TestAccount} Lang {language}";
+
+            Perform_CreateCompileBackTest_Tests(projectName, language, algorithmName, code, "Runtime Error");
         }
     }
 }

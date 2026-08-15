@@ -54,7 +54,8 @@ namespace QuantConnect.Algorithm.CSharp
         {
             if (Time.Hour == 9 && Time.Minute == 58)
             {
-                AddOption(UnderlyingTicker);
+                var option = AddOption(UnderlyingTicker);
+                option.SetFilter(u => u.StandardsOnly().Strikes(-1, 1).Expiration(0, 35));
             }
 
             AssertValue(slice);
@@ -95,7 +96,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 854441;
+        public long DataPoints => 7562;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -138,6 +139,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", ""},
             {"Portfolio Turnover", "0%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "d41d8cd98f00b204e9800998ecf8427e"}
         };
     }

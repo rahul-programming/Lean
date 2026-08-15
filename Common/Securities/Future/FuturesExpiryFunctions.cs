@@ -40,197 +40,6 @@ namespace QuantConnect.Securities.Future
         }
 
         /// <summary>
-        /// The USDA publishes a report containing contract prices for the contract month.
-        /// You can see future publication dates at https://www.ams.usda.gov/rules-regulations/mmr/dmr (Advanced and Class Price Release Dates)
-        /// These dates are erratic and requires maintenance of a separate list instead of using holiday entries in MHDB.
-        /// </summary>
-        /// <remarks>We only report the publication date of the report. In order to get accurate last trade dates, subtract one (plus holidays) from the value's date</remarks>
-        public static Dictionary<DateTime, DateTime> DairyReportDates = new Dictionary<DateTime, DateTime>()
-        {
-            {new DateTime(2012, 3, 1), new DateTime(2012, 4, 2) },
-            {new DateTime(2012, 4, 1), new DateTime(2012, 5, 2) },
-            {new DateTime(2012, 5, 1), new DateTime(2012, 5, 31) },
-            {new DateTime(2012, 6, 1), new DateTime(2012, 7, 5) },
-            {new DateTime(2012, 7, 1), new DateTime(2012, 8, 1) },
-            {new DateTime(2012, 8, 1), new DateTime(2012, 8, 29) },
-            {new DateTime(2012, 9, 1), new DateTime(2012, 10, 3) },
-            {new DateTime(2012, 10, 1), new DateTime(2012, 10, 31) },
-            {new DateTime(2012, 11, 1), new DateTime(2012, 12, 5) },
-            {new DateTime(2012, 12, 1), new DateTime(2013, 1, 3) },
-            {new DateTime(2013, 1, 1), new DateTime(2013, 1, 30) },
-            {new DateTime(2013, 2, 1), new DateTime(2013, 2, 27) },
-            {new DateTime(2013, 3, 1), new DateTime(2013, 4, 3) },
-            {new DateTime(2013, 4, 1), new DateTime(2013, 5, 1) },
-            {new DateTime(2013, 5, 1), new DateTime(2013, 6, 5) },
-            {new DateTime(2013, 6, 1), new DateTime(2013, 7, 3) },
-            {new DateTime(2013, 7, 1), new DateTime(2013, 7, 31) },
-            {new DateTime(2013, 8, 1), new DateTime(2013, 9, 5) },
-            {new DateTime(2013, 9, 1), new DateTime(2013, 10, 18) },
-            {new DateTime(2013, 10, 1), new DateTime(2013, 10, 30) },
-            {new DateTime(2013, 11, 1), new DateTime(2013, 12, 4) },
-            {new DateTime(2013, 12, 1), new DateTime(2014, 1, 2) },
-            {new DateTime(2014, 1, 1), new DateTime(2014, 2, 5) },
-            {new DateTime(2014, 2, 1), new DateTime(2014, 3, 5) },
-            {new DateTime(2014, 3, 1), new DateTime(2014, 4, 2) },
-            {new DateTime(2014, 4, 1), new DateTime(2014, 4, 30) },
-            {new DateTime(2014, 5, 1), new DateTime(2014, 6, 4) },
-            {new DateTime(2014, 6, 1), new DateTime(2014, 7, 2) },
-            {new DateTime(2014, 7, 1), new DateTime(2014, 7, 30) },
-            {new DateTime(2014, 8, 1), new DateTime(2014, 9, 4) },
-            {new DateTime(2014, 9, 1), new DateTime(2014, 10, 1) },
-            {new DateTime(2014, 10, 1), new DateTime(2014, 11, 5) },
-            {new DateTime(2014, 11, 1), new DateTime(2014, 12, 3) },
-            {new DateTime(2014, 12, 1), new DateTime(2014, 12, 31) },
-            {new DateTime(2015, 1, 1), new DateTime(2015, 2, 4) },
-            {new DateTime(2015, 2, 1), new DateTime(2015, 3, 4) },
-            {new DateTime(2015, 3, 1), new DateTime(2015, 4, 1) },
-            {new DateTime(2015, 4, 1), new DateTime(2015, 4, 29) },
-            {new DateTime(2015, 5, 1), new DateTime(2015, 6, 3) },
-            {new DateTime(2015, 6, 1), new DateTime(2015, 7, 1) },
-            {new DateTime(2015, 7, 1), new DateTime(2015, 8, 5) },
-            {new DateTime(2015, 8, 1), new DateTime(2015, 9, 2) },
-            {new DateTime(2015, 9, 1), new DateTime(2015, 9, 30) },
-            {new DateTime(2015, 10, 1), new DateTime(2015, 11, 4) },
-            {new DateTime(2015, 11, 1), new DateTime(2015, 12, 2) },
-            {new DateTime(2015, 12, 1), new DateTime(2015, 12, 30) },
-            {new DateTime(2016, 1, 1), new DateTime(2016, 2, 3) },
-            {new DateTime(2016, 2, 1), new DateTime(2016, 3, 2) },
-            {new DateTime(2016, 3, 1), new DateTime(2016, 3, 30) },
-            {new DateTime(2016, 4, 1), new DateTime(2016, 5, 4) },
-            {new DateTime(2016, 5, 1), new DateTime(2016, 6, 2) },
-            {new DateTime(2016, 6, 1), new DateTime(2016, 6, 29) },
-            {new DateTime(2016, 7, 1), new DateTime(2016, 8, 3) },
-            {new DateTime(2016, 8, 1), new DateTime(2016, 8, 31) },
-            {new DateTime(2016, 9, 1), new DateTime(2016, 10, 5) },
-            {new DateTime(2016, 10, 1), new DateTime(2016, 11, 2) },
-            {new DateTime(2016, 11, 1), new DateTime(2016, 11, 30) },
-            {new DateTime(2016, 12, 1), new DateTime(2017, 1, 5) },
-            {new DateTime(2017, 1, 1), new DateTime(2017, 2, 1) },
-            {new DateTime(2017, 2, 1), new DateTime(2017, 3, 1) },
-            {new DateTime(2017, 3, 1), new DateTime(2017, 4, 5) },
-            {new DateTime(2017, 4, 1), new DateTime(2017, 5, 3) },
-            {new DateTime(2017, 5, 1), new DateTime(2017, 6, 1) },
-            {new DateTime(2017, 6, 1), new DateTime(2017, 6, 28) },
-            {new DateTime(2017, 7, 1), new DateTime(2017, 8, 2) },
-            {new DateTime(2017, 8, 1), new DateTime(2017, 8, 30) },
-            {new DateTime(2017, 9, 1), new DateTime(2017, 10, 4) },
-            {new DateTime(2017, 10, 1), new DateTime(2017, 11, 1) },
-            {new DateTime(2017, 11, 1), new DateTime(2017, 11, 29) },
-            {new DateTime(2017, 12, 1), new DateTime(2018, 1, 4) },
-            {new DateTime(2018, 1, 1), new DateTime(2018, 1, 31) },
-            {new DateTime(2018, 2, 1), new DateTime(2018, 2, 28) },
-            {new DateTime(2018, 3, 1), new DateTime(2018, 4, 4) },
-            {new DateTime(2018, 4, 1), new DateTime(2018, 5, 2) },
-            {new DateTime(2018, 5, 1), new DateTime(2018, 5, 31) },
-            {new DateTime(2018, 6, 1), new DateTime(2018, 7, 5) },
-            {new DateTime(2018, 7, 1), new DateTime(2018, 8, 1) },
-            {new DateTime(2018, 8, 1), new DateTime(2018, 8, 29) },
-            {new DateTime(2018, 9, 1), new DateTime(2018, 10, 3) },
-            {new DateTime(2018, 10, 1), new DateTime(2018, 10, 31) },
-            {new DateTime(2018, 11, 1), new DateTime(2018, 12, 5) },
-            {new DateTime(2018, 12, 1), new DateTime(2019, 1, 3) },
-            {new DateTime(2019, 1, 1), new DateTime(2019, 1, 30) },
-            {new DateTime(2019, 2, 1), new DateTime(2019, 2, 27) },
-            {new DateTime(2019, 3, 1), new DateTime(2019, 4, 3) },
-            {new DateTime(2019, 4, 1), new DateTime(2019, 5, 1) },
-            {new DateTime(2019, 5, 1), new DateTime(2019, 6, 5) },
-            {new DateTime(2019, 6, 1), new DateTime(2019, 7, 3) },
-            {new DateTime(2019, 7, 1), new DateTime(2019, 7, 31) },
-            {new DateTime(2019, 8, 1), new DateTime(2019, 9, 5) },
-            {new DateTime(2019, 9, 1), new DateTime(2019, 10, 2) },
-            {new DateTime(2019, 10, 1), new DateTime(2019, 10, 30) },
-            {new DateTime(2019, 11, 1), new DateTime(2019, 12, 4) },
-            {new DateTime(2019, 12, 1), new DateTime(2020, 1, 2) },
-            {new DateTime(2020, 1, 1), new DateTime(2020, 2, 5) },
-            {new DateTime(2020, 2, 1), new DateTime(2020, 3, 4) },
-            {new DateTime(2020, 3, 1), new DateTime(2020, 4, 1) },
-            {new DateTime(2020, 4, 1), new DateTime(2020, 4, 29) },
-            {new DateTime(2020, 5, 1), new DateTime(2020, 6, 3) },
-            {new DateTime(2020, 6, 1), new DateTime(2020, 7, 1) },
-            {new DateTime(2020, 7, 1), new DateTime(2020, 8, 5) },
-            {new DateTime(2020, 8, 1), new DateTime(2020, 9, 2) },
-            {new DateTime(2020, 9, 1), new DateTime(2020, 9, 30) },
-            {new DateTime(2020, 10, 1), new DateTime(2020, 11, 4) },
-            {new DateTime(2020, 11, 1), new DateTime(2020, 12, 2) },
-            {new DateTime(2020, 12, 1), new DateTime(2020, 12, 30) },
-            {new DateTime(2021, 1, 1), new DateTime(2021, 2, 3) },
-            {new DateTime(2021, 2, 1), new DateTime(2021, 3, 3) },
-            {new DateTime(2021, 3, 1), new DateTime(2021, 3, 31) },
-            {new DateTime(2021, 4, 1), new DateTime(2021, 5, 5) },
-            {new DateTime(2021, 5, 1), new DateTime(2021, 6, 3) },
-            {new DateTime(2021, 6, 1), new DateTime(2021, 6, 30) },
-            {new DateTime(2021, 7, 1), new DateTime(2021, 8, 4) },
-            {new DateTime(2021, 8, 1), new DateTime(2021, 9, 1) },
-            {new DateTime(2021, 9, 1), new DateTime(2021, 9, 29) },
-            {new DateTime(2021, 10, 1), new DateTime(2021, 11, 3) },
-            {new DateTime(2021, 11, 1), new DateTime(2021, 12, 1) },
-            {new DateTime(2021, 12, 1), new DateTime(2022, 1, 5) },
-            {new DateTime(2022, 1, 1), new DateTime(2022, 2, 2) },
-            {new DateTime(2022, 2, 1), new DateTime(2022, 3, 2) },
-            {new DateTime(2022, 3, 1), new DateTime(2022, 3, 30) },
-            {new DateTime(2022, 4, 1), new DateTime(2022, 5, 4) },
-            {new DateTime(2022, 5, 1), new DateTime(2022, 6, 2) },
-            {new DateTime(2022, 6, 1), new DateTime(2022, 6, 29) },
-            {new DateTime(2022, 7, 1), new DateTime(2022, 8, 3) },
-            {new DateTime(2022, 8, 1), new DateTime(2022, 8, 31) },
-            {new DateTime(2022, 9, 1), new DateTime(2022, 10, 5) },
-            {new DateTime(2022, 10, 1), new DateTime(2022, 11, 2) },
-            {new DateTime(2022, 11, 1), new DateTime(2022, 11, 30) },
-            {new DateTime(2022, 12, 1), new DateTime(2023, 1, 5) },
-        };
-
-        /// <summary>
-        /// Enbridge's Notice of Shipment report dates. Used to calculate the last trade date for CSW
-        /// </summary>
-        /// <remarks>Subtract a day from the value's date in order to get the last trade date</remarks>
-        public static Dictionary<DateTime, DateTime> EnbridgeNoticeOfShipmentDates = new Dictionary<DateTime, DateTime>()
-        {
-            {new DateTime(2019, 6, 1), new DateTime(2019, 5, 17) },
-            {new DateTime(2019, 7, 1), new DateTime(2019, 6, 15) },
-            {new DateTime(2019, 8, 1), new DateTime(2019, 7, 17) },
-            {new DateTime(2019, 9, 1), new DateTime(2019, 8, 16) },
-            {new DateTime(2019, 10, 1), new DateTime(2019, 9, 14) },
-            {new DateTime(2019, 11, 1), new DateTime(2019, 10, 17) },
-            {new DateTime(2019, 12, 1), new DateTime(2019, 11, 15) },
-            {new DateTime(2020, 1, 1), new DateTime(2019, 12, 14) },
-            {new DateTime(2020, 2, 1), new DateTime(2020, 1, 22) },
-            {new DateTime(2020, 3, 1), new DateTime(2020, 2, 21) },
-            {new DateTime(2020, 4, 1), new DateTime(2020, 3, 21) },
-            {new DateTime(2020, 5, 1), new DateTime(2020, 4, 21) },
-            {new DateTime(2020, 6, 1), new DateTime(2020, 5, 21) },
-            {new DateTime(2020, 7, 1), new DateTime(2020, 6, 23) },
-            {new DateTime(2020, 8, 1), new DateTime(2020, 7, 21) },
-            {new DateTime(2020, 9, 1), new DateTime(2020, 8, 21) },
-            {new DateTime(2020, 10, 1), new DateTime(2020, 9, 22) },
-            {new DateTime(2020, 11, 1), new DateTime(2020, 10, 21) },
-            {new DateTime(2020, 12, 1), new DateTime(2020, 11, 21) },
-            {new DateTime(2021, 1, 1), new DateTime(2020, 12, 22) },
-            {new DateTime(2021, 2, 1), new DateTime(2021, 1, 21) },
-            {new DateTime(2021, 3, 1), new DateTime(2021, 2, 23) },
-            {new DateTime(2021, 4, 1), new DateTime(2021, 3, 23) },
-            {new DateTime(2021, 5, 1), new DateTime(2021, 4, 21) },
-            {new DateTime(2021, 6, 1), new DateTime(2021, 5, 21) },
-            {new DateTime(2021, 7, 1), new DateTime(2021, 6, 22) },
-            {new DateTime(2021, 8, 1), new DateTime(2021, 7, 21) },
-            {new DateTime(2021, 9, 1), new DateTime(2021, 8, 21) },
-            {new DateTime(2021, 10, 1), new DateTime(2021, 9, 21) },
-            {new DateTime(2021, 11, 1), new DateTime(2021, 10, 21) },
-            {new DateTime(2021, 12, 1), new DateTime(2021, 11, 23) },
-            {new DateTime(2022, 1, 1), new DateTime(2021, 12, 21) },
-            {new DateTime(2022, 2, 1), new DateTime(2022, 1, 21) },
-            {new DateTime(2022, 3, 1), new DateTime(2022, 2, 23) },
-            {new DateTime(2022, 4, 1), new DateTime(2022, 3, 22) },
-            {new DateTime(2022, 5, 1), new DateTime(2022, 4, 21) },
-            {new DateTime(2022, 6, 1), new DateTime(2022, 5, 21) },
-            {new DateTime(2022, 7, 1), new DateTime(2022, 6, 21) },
-            {new DateTime(2022, 8, 1), new DateTime(2022, 7, 21) },
-            {new DateTime(2022, 9, 1), new DateTime(2022, 8, 23) },
-            {new DateTime(2022, 10, 1), new DateTime(2022, 9, 21) },
-            {new DateTime(2022, 11, 1), new DateTime(2022, 10, 21) },
-            {new DateTime(2022, 12, 1), new DateTime(2022, 11, 22) },
-        };
-
-        /// <summary>
         /// Dictionary of the Functions that calculates the expiry for a given year and month.
         /// It does not matter what the day and time of day are passed into the Functions.
         /// The Functions is responsible for calculating the day and time of day given a year and month
@@ -245,7 +54,7 @@ namespace QuantConnect.Securities.Future
                     // Trading terminates on the third last business day of the delivery month.
                     var market = Market.COMEX;
                     var symbol = Futures.Metals.Gold;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time,3, holidays);
                 })
             },
@@ -256,7 +65,7 @@ namespace QuantConnect.Securities.Future
                     // Trading terminates on the third last business day of the delivery month.
                     var market = Market.COMEX;
                     var symbol = Futures.Metals.Silver;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time,3, holidays);
                 })
             },
@@ -267,7 +76,7 @@ namespace QuantConnect.Securities.Future
                     // Trading terminates on the third last business day of the delivery month.
                     var market = Market.NYMEX;
                     var symbol = Futures.Metals.Platinum;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time,3, holidays);
                 })
             },
@@ -278,7 +87,7 @@ namespace QuantConnect.Securities.Future
                     // Trading terminates on the third last business day of the delivery month.
                     var market = Market.NYMEX;
                     var symbol = Futures.Metals.Palladium;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time,3, holidays);
                 })
             },
@@ -287,11 +96,11 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.COMEX;
                     var symbol = Futures.Metals.AluminumMWUSTransactionPremiumPlatts25MT;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
-					
+
                     lastBusinessDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastBusinessDay, -1, holidays);
 
                     return lastBusinessDay;
@@ -302,7 +111,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.COMEX;
                     var symbol = Futures.Metals.AluminiumEuropeanPremiumDutyPaidMetalBulletin;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -318,7 +127,7 @@ namespace QuantConnect.Securities.Future
                     var symbol = Futures.Metals.Copper;
                     // Monthly contracts
                     // Trading terminates at 12:00 Noon CT on the third last business day of the contract month.
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 3, holidays).Add(new TimeSpan(17, 0, 0));
                 })
@@ -328,7 +137,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Metals.USMidwestDomesticHotRolledCoilSteelCRUIndex;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the business day prior to the last Wednesday of the named contract month.
                     var lastWednesday = (from dateRange in Enumerable.Range(1, DateTime.DaysInMonth(time.Year, time.Month))
@@ -349,9 +158,54 @@ namespace QuantConnect.Securities.Future
                     }
 
                     // Trading can occur up to 9:30 a.m. Eastern Time (ET) on the 3rd Friday of the contract month
-                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time, Symbol.Create(Futures.Indices.SP500EMini, SecurityType.Future, Market.CME));
                     return thirdFriday.Add(new TimeSpan(13,30,0));
                 })
+            },
+            // EuroStoxx50 (FESX): https://www.xetra.com/resource/blob/63488/437afcd347fb020377873dd1ceac10ba/EURO-STOXX-50-Factsheet-data.pdf
+            {Symbol.Create(Futures.Indices.EuroStoxx50, SecurityType.Future, Market.EUREX), (time =>
+                {
+                    // Quarterly contracts (Mar/3, Jun/6 , Sep/9 , Dec/12) listed for 9 consecutive quarters and 3 additional December contract months.
+                    while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
+                    {
+                        time = time.AddMonths(1);
+                    }
+
+                    // Trading can occur up to 9:30 a.m. Eastern Time (ET) on the 3rd Friday of the contract month
+                    var lastTradingDay = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(Market.EUREX, Futures.Indices.EuroStoxx50);
+                    lastTradingDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastTradingDay, -1, holidays);
+
+                    return lastTradingDay.Add(new TimeSpan(13,30,0));
+                })
+            },
+            // DAX (FDAX): https://www.eurex.com/ex-en/markets/idx/dax/DAX-Futures-139902
+            {Symbol.Create(Futures.Indices.DAX, SecurityType.Future, Market.EUREX),
+                GetDAXFuturesExpiry(Market.EUREX, Futures.Indices.DAX)
+            },
+            // DAX50 (DAX50): https://www.eurex.com/ex-en/markets/idx/dax/DAX-Futures-139902
+            {Symbol.Create(Futures.Indices.DAX50, SecurityType.Future, Market.EUREX),
+                GetDAXFuturesExpiry(Market.EUREX, Futures.Indices.DAX50)
+            },
+            // DivDAX (FDIV): https://www.eurex.com/ex-en/markets/idx/dax/DAX-Futures-139902
+            {Symbol.Create(Futures.Indices.DivDAX, SecurityType.Future, Market.EUREX),
+                GetDAXFuturesExpiry(Market.EUREX, Futures.Indices.DivDAX)
+            },
+            // Micro DAX (FDXS): https://www.eurex.com/ex-en/markets/idx/dax/DAX-Futures-139902
+            {Symbol.Create(Futures.Indices.DAXMicro, SecurityType.Future, Market.EUREX),
+                GetDAXFuturesExpiry(Market.EUREX, Futures.Indices.DAXMicro)
+            },
+            // Mini DAX (FDXM): https://www.eurex.com/ex-en/markets/idx/dax/DAX-Futures-139902
+            {Symbol.Create(Futures.Indices.DAXMini, SecurityType.Future, Market.EUREX),
+                GetDAXFuturesExpiry(Market.EUREX, Futures.Indices.DAXMini)
+            },
+            // Mini MDAX (FSMX): https://www.eurex.com/ex-en/markets/idx/dax/DAX-Futures-139902
+            {Symbol.Create(Futures.Indices.MDAXMini, SecurityType.Future, Market.EUREX),
+                GetDAXFuturesExpiry(Market.EUREX, Futures.Indices.MDAXMini)
+            },
+            // TexDAX (FTDX): https://www.eurex.com/ex-en/markets/idx/dax/DAX-Futures-139902
+            {Symbol.Create(Futures.Indices.TecDAX, SecurityType.Future, Market.EUREX),
+                GetDAXFuturesExpiry(Market.EUREX, Futures.Indices.TecDAX)
             },
             // NASDAQ100EMini (NQ): http://www.cmegroup.com/trading/equity-index/us-index/e-mini-nasdaq-100_contract_specifications.html
             {Symbol.Create(Futures.Indices.NASDAQ100EMini, SecurityType.Future, Market.CME), (time =>
@@ -363,7 +217,7 @@ namespace QuantConnect.Securities.Future
                     }
 
                     // Trading can occur up to 9:30 a.m. Eastern Time (ET) on the 3rd Friday of the contract month
-                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time, Symbol.Create(Futures.Indices.NASDAQ100EMini, SecurityType.Future, Market.CME));
                     return thirdFriday.Add(new TimeSpan(13,30,0));
                 })
             },
@@ -377,7 +231,7 @@ namespace QuantConnect.Securities.Future
                     }
 
                     // Trading can occur up to 9:30 a.m. Eastern Time (ET) on the 3rd Friday of the contract month
-                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time, Symbol.Create(Futures.Indices.Dow30EMini, SecurityType.Future, Market.CBOT));
                     return thirdFriday.Add(new TimeSpan(13,30,0));
                 })
             },
@@ -391,7 +245,7 @@ namespace QuantConnect.Securities.Future
                     }
 
                     // Trading can occur up to 9:30 a.m. Eastern Time (ET) on the 3rd Friday of the contract month
-                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time, Symbol.Create(Futures.Indices.Russell2000EMini, SecurityType.Future, Market.CME));
                     return thirdFriday.Add(new TimeSpan (13,30,0));
                 })
             },
@@ -400,7 +254,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.Nikkei225Dollar;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 12 quarters, and 3 additional Dec contract months
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -422,7 +276,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.Nikkei225YenCME;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 12 quarters, serial contract listed for 3 months, and 3 additional Dec contract months
                     // Trading terminates at 5:00 p.m. Eastern Time (ET) on Business Day prior to 2nd Friday of the contract month.
                     var secondFriday = FuturesExpiryUtilityFunctions.SecondFriday(time);
@@ -439,7 +293,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.Nikkei225YenEMini;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Four months in the March Quarterly Cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -461,11 +315,11 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.FTSEChina50EMini;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Contracts listed for the  2 nearest serial and 4 quarterly months.
                     //Trading terminates on the second to last business day of the contract month at the end of trading on the Hong Kong Exchange Securities Market
                     var secondLastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time,2, holidays);
-         
+
                     while (!FuturesExpiryUtilityFunctions.NotHoliday(secondLastBusinessDay, holidays))
                     {
                         secondLastBusinessDay = secondLastBusinessDay.AddDays(-1);
@@ -478,7 +332,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.FTSE100EMini;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Contracts listed for five months in the March Quarterly Cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -500,7 +354,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.SPEurop350ESGEMini;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Contracts listed for 5 months in the March Quarterly Cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -522,7 +376,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.FTSE100USDEMini;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Contracts listed for five months in the March Quarterly Cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -544,7 +398,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.TOPIXUSD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Quarterly Contracts listed for (Mar, Jun, Sep, Dec) for 5 months
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -567,7 +421,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.TOPIXYEN;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Quarterly Contracts listed for (Mar, Jun, Sep, Dec) for 5 months
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -590,7 +444,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.DowJonesRealEstate;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Quarterly contracts (Mar, Jun, Sep, Dec) listed for 4 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -611,7 +465,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.SP500EMiniESG;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Quarterly contracts (Mar, Jun, Sep, Dec) listed for 5 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -632,7 +486,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.Russell1000EMini;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Quarterly contracts (Mar, Jun, Sep, Dec) lisrted for 5 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -653,7 +507,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.SP500AnnualDividendIndex;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     //Annual contracts (December) listed for 11 consecutive years
                     while (!FutureExpirationCycles.December.Contains(time.Month))
                     {
@@ -678,7 +532,7 @@ namespace QuantConnect.Securities.Future
                     var symbol = Futures.Indices.VIX;
                     var nextThirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time.AddMonths(1));
                     var expiryDate = nextThirdFriday.AddDays(-30);
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     // If the next third Friday or the Wednesday are holidays, then it is moved to the previous day.
                     if (holidays.Contains(expiryDate) || holidays.Contains(nextThirdFriday))
@@ -689,12 +543,37 @@ namespace QuantConnect.Securities.Future
                     return expiryDate.Add(new TimeSpan(13, 0, 0));
                 })
             },
+            // VIX Mini Futures (VXM): https://cdn.cboe.com/resources/futures/VXM_Contract_Specifications.pdf
+            {Symbol.Create(Futures.Indices.VIXMini, SecurityType.Future, Market.CFE), (time =>
+                {
+                    // Trading occurs 30 days before S&P 500 option expiration (third Friday of contract month).
+                    // Last trading day is the Wednesday 30 days prior to the third Friday of the contract month.
+                    var market = Market.CFE;
+                    var symbol = Futures.Indices.VIXMini;
+                    var nextThirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time.AddMonths(1));
+                    var expiryDate = nextThirdFriday.AddDays(-30);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
+                    // If the reference 3rd Friday is a holiday, shift expiry back one day per spec.
+                    if (holidays.Contains(nextThirdFriday))
+                    {
+                        expiryDate = expiryDate.AddDays(-1);
+                    }
+                    // Ensure the computed expiry date is itself a valid tradable day.
+                    while (holidays.Contains(expiryDate) || !expiryDate.IsCommonBusinessDay())
+                    {
+                        expiryDate = expiryDate.AddDays(-1);
+                    }
+                    // Trading hours for expiring VXM futures contracts end at 8:00 a.m. Chicago time on the final settlement date.
+                    return expiryDate.Add(new TimeSpan(13, 0, 0));
+                })
+            },
             // Bloomberg Commodity Index (AW): https://www.cmegroup.com/trading/agricultural/commodity-index/bloomberg-commodity-index_contract_specifications.html
             {Symbol.Create(Futures.Indices.BloombergCommodityIndex, SecurityType.Future, Market.CBOT), (time =>
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Indices.BloombergCommodityIndex;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 4 consecutive quarters and 4 additional Dec contract months
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -712,7 +591,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.NASDAQ100BiotechnologyEMini;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 5 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -757,7 +636,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.SPGSCICommodity;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the11th business day of the contract month, 1:40pm.
 
@@ -769,7 +648,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Indices.USDDenominatedIbovespa;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Four bi-monthly contracts (Feb/2, Apr/4, Jun/6, Aug/8, Oct/10, Dec/12 cycle)
                     while (!FutureExpirationCycles.GJMQVZ.Contains(time.Month))
                     {
@@ -805,7 +684,7 @@ namespace QuantConnect.Securities.Future
                     var secondFriday = FuturesExpiryUtilityFunctions.SecondFriday(time);
                     var priorBusinessDay = secondFriday.AddDays(-1);
 
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     while (holidays.Contains(priorBusinessDay) || !priorBusinessDay.IsCommonBusinessDay())
                     {
@@ -825,7 +704,7 @@ namespace QuantConnect.Securities.Future
                     var lastDay = new DateTime(time.Year, time.Month, DateTime.DaysInMonth(time.Year, time.Month));
                     var priorBusinessDay = lastDay.AddDays(-1);
 
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     while (holidays.Contains(priorBusinessDay) || !priorBusinessDay.IsCommonBusinessDay())
                     {
@@ -843,7 +722,7 @@ namespace QuantConnect.Securities.Future
                     // The expiring contract shall close on its last trading day at 3.30 pm.
                     var market = Market.India;
                     var symbol = Futures.Indices.Nifty50;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     var expiryday = FuturesExpiryUtilityFunctions.LastThursday(time);
 
@@ -863,7 +742,7 @@ namespace QuantConnect.Securities.Future
                     // The expiring contract shall close on its last trading day at 3.30 pm.
                     var market = Market.India;
                     var symbol = Futures.Indices.BankNifty;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     var expiryday = FuturesExpiryUtilityFunctions.LastThursday(time);
 
@@ -883,7 +762,7 @@ namespace QuantConnect.Securities.Future
                     // The expiring contract shall close on its last trading day at 3.30 pm.
                     var market = Market.India;
                     var symbol = Futures.Indices.BseSensex;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     var expiryday = FuturesExpiryUtilityFunctions.LastThursday(time);
 
@@ -895,6 +774,50 @@ namespace QuantConnect.Securities.Future
                 })
             },
 
+            // HSI Index Futures:https://www.hkex.com.hk/Products/Listed-Derivatives/Equity-Index/Hang-Seng-Index-(HSI)/Hang-Seng-Index-Futures?sc_lang=en#&product=HSI
+            {Symbol.Create(Futures.Indices.HangSeng, SecurityType.Future, Market.HKFE), (time =>
+                {
+                   // Short-dated Futures:
+                   // Spot, next three calendar month & next three calendar quarter months; and
+                   // Long-dated Futures:
+                   // The three months of June and December plus the next three months of December
+
+                    // The Business Day immediately preceding the last Business Day of the Contract Month
+                    var lastDay = new DateTime(time.Year, time.Month, DateTime.DaysInMonth(time.Year, time.Month));
+
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(Market.HKFE, Futures.Indices.HangSeng);
+                    var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
+                    var priorBusinessDay = FuturesExpiryUtilityFunctions.AddBusinessDays(lastBusinessDay, -1, holidays);
+
+                    return priorBusinessDay.Add(new TimeSpan(16, 0, 0));
+                })
+            },
+
+            // KOSPI 200 Index Futures (KM): http://global.krx.co.kr/contents/GLB/05/0503/0503010102/GLB0503010102.jsp
+            {Symbol.Create(Futures.Indices.Kospi200, SecurityType.Future, Market.KRX), (time =>
+                {
+                    // Listed contracts: four quarterly months (March, June, September, December) + two half-yearly months (June, December)
+                    // + one yearly month (December), all within the quarterly cycle
+                    while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
+                    {
+                        time = time.AddMonths(1);
+                    }
+
+                    // Last trading day: the second Thursday of the contract month. Trading terminates at 15:20 KST on that day.
+                    // If the second Thursday is a holiday, the last trading day is the preceding business day.
+                    var market = Market.KRX;
+                    var symbol = Futures.Indices.Kospi200;
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
+                    var lastTradingDay = FuturesExpiryUtilityFunctions.NthWeekday(time, 2, DayOfWeek.Thursday);
+                    while (holidays.Contains(lastTradingDay) || !lastTradingDay.IsCommonBusinessDay())
+                    {
+                        lastTradingDay = lastTradingDay.AddDays(-1);
+                    }
+                    return lastTradingDay.Add(new TimeSpan(15, 20, 0));
+                })
+            },
+
             // MSCI Europe Net Total Return (USD) Futures: https://www.theice.com/products/71512951/MSCI-Europe-NTR-Index-Future-USD & https://www.theice.com/publicdocs/futures_us/exchange_notices/ICE_Futures_US_2022_TRADING_HOLIDAY_CALENDAR_20211118.pdf
             {Symbol.Create(Futures.Indices.MSCIEuropeNTR, SecurityType.Future, Market.NYSELIFFE), (time =>
                 {
@@ -902,7 +825,7 @@ namespace QuantConnect.Securities.Future
                     var symbol = Futures.Indices.MSCIEuropeNTR;
                     // Trading terminates on the third Friday of the contract month @16:15.
                     var lastTradingDay = FuturesExpiryUtilityFunctions.ThirdFriday(time);
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     lastTradingDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastTradingDay, -1, holidays);
 
@@ -917,7 +840,7 @@ namespace QuantConnect.Securities.Future
                     // Trading terminates on the third Friday of the contract month @16:15.
                     var lastTradingDay = FuturesExpiryUtilityFunctions.ThirdFriday(time);
 
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     lastTradingDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastTradingDay, -1, holidays);
 
@@ -931,7 +854,7 @@ namespace QuantConnect.Securities.Future
                     var symbol = Futures.Indices.MSCIEmergingMarketsAsiaNTR;
                     // Trading terminates on the third Friday of the contract month @16:15.
                     var lastTradingDay = FuturesExpiryUtilityFunctions.ThirdFriday(time);
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     lastTradingDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastTradingDay, -1, holidays);
 
@@ -946,7 +869,7 @@ namespace QuantConnect.Securities.Future
                     // Trading terminates on the third Friday of the contract month @16:15.
                     var lastTradingDay = FuturesExpiryUtilityFunctions.ThirdFriday(time);
 
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     lastTradingDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastTradingDay, -1, holidays);
 
@@ -960,7 +883,7 @@ namespace QuantConnect.Securities.Future
                     var symbol = Futures.Indices.MSCIEmergingMarketsIndex;
                     // Trading terminates on the third Friday of the contract month @16:15.
                     var lastTradingDay = FuturesExpiryUtilityFunctions.ThirdFriday(time);
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     lastTradingDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastTradingDay, -1, holidays);
 
@@ -974,7 +897,7 @@ namespace QuantConnect.Securities.Future
                     var symbol = Futures.Indices.MSCIUsaIndex;
                     // Trading terminates on the third Friday of the contract month @16:15.
                     var lastTradingDay = FuturesExpiryUtilityFunctions.ThirdFriday(time);
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     lastTradingDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastTradingDay, -1, holidays);
 
@@ -987,7 +910,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Forestry.RandomLengthLumber;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts (Jan, Mar, May, Jul, Sep, Nov) listed for 7 months
                     while (!FutureExpirationCycles.FHKNUX.Contains(time.Month))
                     {
@@ -1005,7 +928,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Forestry.Lumber;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts (Jan, Mar, May, Jul, Sep, Nov) listed for 7 months
                     while (!FutureExpirationCycles.FHKNUX.Contains(time.Month))
                     {
@@ -1023,7 +946,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Grains.SRWWheat;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // 15 monthly contracts of Mar, May, Jul, Sep, Dec listed annually following the termination of trading in the July contract of the current year.
                     while (!FutureExpirationCycles.HKNUZ.Contains(time.Month))
                     {
@@ -1040,7 +963,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Grains.HRWWheat;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts (Mar, May, Jul, Sep, Dec) listed for  15 months
                     while (!FutureExpirationCycles.HKNUZ.Contains(time.Month))
                     {
@@ -1057,7 +980,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Grains.Corn;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // 9 monthly contracts of Mar/3, May/5, Sep/9 and 8 monthly contracts of Jul/7 and Dec/12 listed annually after the termination of trading in the December contract of the current year.
                     while (!FutureExpirationCycles.HKNUZ.Contains(time.Month))
                     {
@@ -1074,7 +997,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Grains.Soybeans;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // 15 monthly contracts of Jan/1, Mar/3, May/5, Aug/8, Sep/9 and 8 monthly contracts of Jul/7 and Nov/11 listed annually after the termination of trading in the November contract of the current year.
                     while (!FutureExpirationCycles.FHKNQUX.Contains(time.Month))
                     {
@@ -1091,7 +1014,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Grains.SoybeanMeal;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // 	15 monthly contracts of Jan/1, Mar/3, May/5, Aug/8, Sep/9 and 12 monthly contracts of Jul/7, Oct/10, Dec/12 listed annually after the termination of trading in the December contract of the current year.
                     while (!FutureExpirationCycles.FHKNQUVZ.Contains(time.Month))
                     {
@@ -1108,7 +1031,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Grains.SoybeanOil;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // 	15 monthly contracts of Jan/1, Mar/3, May/5, Aug/8, Sep/9 and 12 monthly contracts of Jul/7, Oct/10, Dec/12 listed annually after the termination of trading in the December contract of the current year.
                     while (!FutureExpirationCycles.FHKNQUVZ.Contains(time.Month))
                     {
@@ -1125,7 +1048,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Grains.Oats;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts (Mar, May, Jul, Sep, Dec) listed for 10 months and 1 additional Jul and 1 additional Sep contract listed in September
                     while (!FutureExpirationCycles.HKNUZ.Contains(time.Month))
                     {
@@ -1142,8 +1065,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Grains.BlackSeaCornFinanciallySettledPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for 15 consecutive months.
                     // Trading terminates on the last business day of the contract month which is also a Platts publication date for the price assessment.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1154,7 +1077,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Grains.BlackSeaWheatFinanciallySettledPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 15 consecutive months
                     // Trading terminates on the last business day of the contract month which is also a Platts publication date for the price assessment.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1193,7 +1116,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.GBP;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 20 consecutive quarters and serial contracts listed for 3 months
 
                     // 9:16 a.m. Central Time (CT) on the second business day immediately preceding the third Wednesday of the contract month (usually Monday).
@@ -1209,7 +1132,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.CAD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 20 consecutive quarters and serial contracts listed for 3 months
 
                     // 9:16 a.m. Central Time (CT) on the business day immediately preceding the third Wednesday of the contract month (usually Tuesday).
@@ -1223,7 +1146,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.JPY;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 20 consecutive quarters and serial contracts listed for 3 months
 
                     // 9:16 a.m. Central Time (CT) on the second business day immediately preceding the third Wednesday of the contract month (usually Monday).
@@ -1239,7 +1162,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.CHF;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 20 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1259,7 +1182,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.EUR;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 20 consecutive quarters and serial contracts listed for 3 months
 
                     // 9:16 a.m. Central Time (CT) on the second business day immediately preceding the third Wednesday of the contract month (usually Monday).
@@ -1275,7 +1198,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.AUD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 20 consecutive quarters and serial contracts listed for 3 months
 
                     // 9:16 a.m. Central Time (CT) on the second business day immediately preceding the third Wednesday of the contract month (usually Monday).
@@ -1291,7 +1214,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.NZD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 6 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1311,7 +1234,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.RUB;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contacts listed for 12 consecutive months and quarterly contracts (Mar, Jun, Sep, Dec) listed for16 additional quarters
                     // 11:00 a.m. Mosccow time on the fifteenth day of the month, or, if not a business day, on the next business day for the Moscow interbank foreign exchange market.
                     var fifteenth = new DateTime(time.Year, time.Month, 15);
@@ -1328,7 +1251,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.BRL;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 60 consecutive months
                     // On the last business day of the month, at 9:15 a.m. CT, immediately preceding the contract month, on which the Central Bank of Brazil is scheduled to publish its final end-of-month (EOM), "Commercial exchange rate for Brazilian reais per U.S. dollar for cash delivery" (PTAX rate).
                     var lastPrecedingBusinessDay = FuturesExpiryUtilityFunctions.AddBusinessDays(time, -1, holidays);
@@ -1342,13 +1265,13 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MXN;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 13 consecutive  months and 2 additional quarterly contracts (Mar, Jun, Sep, Dec)
                     // 9:16 a.m. Central Time (CT) on the second business day immediately preceding the third Wednesday of the contract month (usually Monday).
                     var thirdWednesday = FuturesExpiryUtilityFunctions.ThirdWednesday(time);
                     var secondBusinessDayPrecedingThirdWednesday = FuturesExpiryUtilityFunctions.AddBusinessDays(thirdWednesday,-2, holidays);
                     secondBusinessDayPrecedingThirdWednesday = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(secondBusinessDayPrecedingThirdWednesday, -1, holidays);
-					
+
                     return secondBusinessDayPrecedingThirdWednesday.Add(new TimeSpan(14,16,0));
                 })
             },
@@ -1357,13 +1280,13 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.ZAR;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 13 consecutive months and quarterly contracts (Mar, Jun, Sep, Dec) listed for 4 consecutive quarters
                     // 9:16 a.m. Central Time (CT) on the second business day immediately preceding the third Wednesday of the contract month (usually Monday)
                     var thirdWednesday = FuturesExpiryUtilityFunctions.ThirdWednesday(time);
                     var secondBusinessDayPrecedingThirdWednesday = FuturesExpiryUtilityFunctions.AddBusinessDays(thirdWednesday, -2, holidays);
                     secondBusinessDayPrecedingThirdWednesday = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(secondBusinessDayPrecedingThirdWednesday, -1, holidays);
-					
+
                     return secondBusinessDayPrecedingThirdWednesday.Add(new TimeSpan(14,16,0));
                 })
             },
@@ -1372,7 +1295,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.AUDCAD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Six months in the March quarterly cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1392,7 +1315,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.AUDJPY;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Six months in the March quarterly cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1412,7 +1335,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.AUDNZD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Six months in the March quarterly cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1432,7 +1355,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.BTC;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 6 consecutive months and 2 additional Dec contract months. If the 6 consecutive months includes Dec, list only 1 additional Dec contract month.
                     // Trading terminates at 4:00 p.m. London time on the last Friday of the contract month. If that day is not a business day in both the U.K. and the US, trading terminates on the preceding day that is a business day for both the U.K. and the U.S..
                     var lastFriday =FuturesExpiryUtilityFunctions.LastFriday(time);
@@ -1446,7 +1369,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.ETH;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 6 consecutive months, quarterly contracts (Mar, Jun, Sep, Dec) listed for 4 additional quarters and a second Dec contract if only one is listed.
                     // Trading terminates at 4:00 p.m. London time on the last Friday of the contract month that is either a London or U.S. business day. If the last Friday of the contract month day is not a business day in both London and the U.S., trading terminates on the prior London or U.S. business day.
                     var lastFriday = FuturesExpiryUtilityFunctions.LastFriday(time);
@@ -1460,7 +1383,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.CADJPY;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Six months in the March quarterly cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1480,8 +1403,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.StandardSizeUSDOffshoreRMBCNH;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for 13 consecutive months and quarterly contracts (Mar, Jun, Sep, Dec) listed for the next 8  quarters.
                     // Trading terminates on the second Hong Kong business day prior to the third Wednesday of the contract month at 11:00 a.m. Hong Kong local time.
                     var thirdWednesday = FuturesExpiryUtilityFunctions.ThirdWednesday(time);
@@ -1499,8 +1422,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.EuroFXEmini;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 2 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1520,8 +1443,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.EURAUD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 6 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1541,8 +1464,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.EURCAD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 6 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1562,8 +1485,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.EURSEK;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Six months in the March quarterly cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1583,7 +1506,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.JapaneseYenEmini;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Two months in the March quarterly cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1604,8 +1527,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.Y30TreasuryBond;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 3 quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1623,8 +1546,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.Y10TreasuryNote;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 3 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1642,7 +1565,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.Y5TreasuryNote;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 3 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1659,8 +1582,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.Y2TreasuryNote;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 3 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1677,8 +1600,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Financials.EuroDollar;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 40 consecutive quarters and the nearest 4 serial contract months.
                     // List a new quarterly contract for trading on the last trading day of the nearby expiry.
 
@@ -1695,7 +1618,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.FiveYearUSDMACSwap;
-					
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 2 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1704,7 +1627,7 @@ namespace QuantConnect.Securities.Future
 
                     // Second London business day before 3rd Wednesday of futures Delivery Month. Trading in expiring contracts closes at 2:00 p.m. on the last trading day.
                     var secondBusinessDayBeforeThirdWednesday = FuturesExpiryUtilityFunctions.ThirdWednesday(time).AddDays(-2);
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     // Because we're using a London calendar, we need to put entries in MHDB and not use `USHolidays.Dates`
                     while (holidays.Contains(secondBusinessDayBeforeThirdWednesday) || !secondBusinessDayBeforeThirdWednesday.IsCommonBusinessDay())
@@ -1720,8 +1643,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.UltraUSTreasuryBond;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 3 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1739,8 +1662,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.UltraTenYearUSTreasuryNote;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 3 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -1757,7 +1680,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.PropaneNonLDHMontBelvieu;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     // Monthly BALMO contracts listed for the current month and the following month listed 10 business days prior to the start of the contract month
                     // Trading shall cease on the last business day of the contract month (no time specified)
@@ -1769,8 +1692,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.ArgusPropaneFarEastIndexBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly BALMO contracts listed for three cconsecutive months
                     // Trading shall cease on the last business day of the contract month. Business days are based on the Singapore Public Holiday calendar.
                     // TODO: Might need singapore calendar
@@ -1782,8 +1705,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MiniEuropeanThreePointPercentFiveFuelOilBargesPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for the current year and the next 4 calendar years.
                     // Trading shall cease on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1797,8 +1720,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MiniSingaporeFuelOil180CstPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for the current year and the next 5 calendar years.
                     // Trading shall cease on the last business day of the contract month.
                     // Special case exists where the last trade occurs on US holiday, but not an exchange holiday (markets closed)
@@ -1818,7 +1741,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GulfCoastULSDPlattsUpDownBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly BALMO contracts listed for the current month and the following month listed 10 business days prior to the start of the contract month
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1829,7 +1752,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GulfCoastJetPlattsUpDownBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly BALMO contracts listed for the current month and the following month listed 10 business days prior to the start of the contract month
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1840,8 +1763,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.PropaneNonLDHMontBelvieuOPIS;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for 48 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1852,7 +1775,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.EuropeanPropaneCIFARAArgusBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly BALMO contracts listed for 3 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1863,8 +1786,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.PremiumUnleadedGasoline10ppmFOBMEDPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // 48 consecutive months
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
                     lastBusinessDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastBusinessDay, -1, holidays);
@@ -1877,8 +1800,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.ArgusPropaneFarEastIndex;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for 48 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1889,8 +1812,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GasolineEurobobOxyNWEBargesArgusCrackSpreadBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly BALMO contracts listed for 3 consecutive months
                     // Trading ceases on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1901,8 +1824,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MontBelvieuNaturalGasolineOPIS;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for 56 consecutive months
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1913,8 +1836,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MontBelvieuNormalButaneOPISBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly BALMO contracts listed for the current month and the following month listed 10 business days prior to the start of the contract month
                     // Trading terminates on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1925,8 +1848,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.ConwayPropaneOPIS;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for the current year and the next 4 calendar years.
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1937,8 +1860,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MontBelvieuLDHPropaneOPISBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly BALMO contracts listed for the current month and the following month listed 10 business days prior to the start of the contract month
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1949,8 +1872,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.ArgusPropaneFarEastIndexVsEuropeanPropaneCIFARAArgus;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for 36 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1964,8 +1887,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.ArgusPropaneSaudiAramco;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for 48 consecutive months
                     // Trading shall terminate on the last business day of the month prior to the contract month.
                     // Business days are based on the Singapore Public Holiday Calendar.
@@ -1986,7 +1909,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GroupThreeULSDPlattsVsNYHarborULSD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
 
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -1997,8 +1920,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GroupThreeSuboctaneGasolinePlattsVsRBOB;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // 36 consecutive months
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2009,8 +1932,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.SingaporeFuelOil180cstPlattsBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly BALMO contracts listed for 3 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2021,8 +1944,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.SingaporeFuelOil380cstPlattsBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly BALMO contracts listed for 3 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2033,8 +1956,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MontBelvieuEthaneOPIS;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for the current year and the next 4 calendar years.
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2045,8 +1968,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MontBelvieuNormalButaneOPIS;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for the current year and next 4 calendar years.
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2057,7 +1980,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.BrentCrudeOilVsDubaiCrudeOilPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Trading shall cease on the last London and Singapore business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
                     lastBusinessDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastBusinessDay, -1, holidays);
@@ -2070,8 +1993,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.ArgusLLSvsWTIArgusTradeMonth;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Trading shall cease at the close of trading on the last business day that falls on or before the 25th calendar day of the month prior to the contract month. If the 25th calendar day is a weekend or holiday, trading shall cease on the first business day prior to the 25th calendar day.
                     var previousMonth = time.AddMonths(-1);
                     var twentyFifthDay = new DateTime(previousMonth.Year, previousMonth.Month, 25);
@@ -2088,8 +2011,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.SingaporeGasoilPlattsVsLowSulphurGasoilFutures;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // Monthly contracts listed for the current year and the next 2 calendar years.
                     // Trading ceases on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2103,8 +2026,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.LosAngelesCARBOBGasolineOPISvsRBOBGasoline;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // 36 consecutive months
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2115,7 +2038,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.LosAngelesJetOPISvsNYHarborULSD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // 36 consecutive months
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2126,7 +2049,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.LosAngelesCARBDieselOPISvsNYHarborULSD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // 3 consecutive years
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2137,7 +2060,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.EuropeanNaphthaPlattsBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly BALMO contracts listed for 3 consecutive months
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2148,7 +2071,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.EuropeanPropaneCIFARAArgus;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 3 calendar years.
                     // Trading shall cease on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2162,7 +2085,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MontBelvieuNaturalGasolineOPISBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly BALMO contracts listed for the current month and the following month listed 10 business days prior to the start of the contract month
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2173,7 +2096,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.RBOBGasolineCrackSpread;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // The current year plus the next three calendar years
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2184,7 +2107,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GulfCoastHSFOPlattsBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly BALMO contracts listed for the current month and the following month listed 10 business days prior to the start of the contract month
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2195,7 +2118,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MarsArgusVsWTITradeMonth;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 5 calendar years.
                     // Trading shall cease at the close of trading on the last business day that falls on or before the 25th calendar day of the
                     // month prior to the contract month. If the 25th calendar day is a weekend or holiday, trading shall cease on the
@@ -2214,7 +2137,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MarsArgusVsWTIFinancial;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // The current year and the next five (5) consecutive calendar years.
                     // Trading shall cease on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2228,7 +2151,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.EthanolT2FOBRdamIncludingDutyPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 36 consecutive months
                     // Trading terminates on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2242,7 +2165,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MontBelvieuLDHPropaneOPIS;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 4 calendar years.
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2253,7 +2176,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GasolineEurobobOxyNWEBargesArgus;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 36 consecutive months
                     // Trading shall cease on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2267,7 +2190,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.WTIBrentFinancial;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 8 calendar years.
                     // Trading shall cease on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2281,7 +2204,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.ThreePointFivePercentFuelOilBargesFOBRdamPlattsCrackSpread1000mt;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 4 calendar years.
                     // Trading shall cease on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2295,7 +2218,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GasolineEurobobOxyNWEBargesArgusBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly BALMO contracts listed for 3 consecutive months
                     // Trading shall cease on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2306,7 +2229,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.BrentLastDayFinancial;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 7 calendar years and 3 additional contract months.
                     // Trading terminates the last London business day of the month, 2 months prior to the contract month except for the February contract month which terminates the 2nd last London business day of the month, 2 months prior to the contract month.
                     var twoMonthsPriorToContractMonth = time.AddMonths(-2);
@@ -2321,7 +2244,7 @@ namespace QuantConnect.Securities.Future
                     {
                         lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(twoMonthsPriorToContractMonth, 1, holidays);
                     }
-                    
+
                     lastBusinessDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastBusinessDay, -1, holidays);
 
                     return lastBusinessDay;
@@ -2332,7 +2255,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.CrudeOilWTI;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 10 calendar years and 2 additional contract months.
                     // Trading in the current delivery month shall cease on the third business day prior to the twenty-fifth calendar day of the month preceding the delivery month. If the twenty-fifth calendar day of the month is a non-business day, trading shall cease on the third business day prior to the last business day preceding the twenty-fifth calendar day. In the event that the official Exchange holiday schedule changes subsequent to the listing of a Crude Oil futures, the originally listed expiration date shall remain in effect.In the event that the originally listed expiration day is declared a holiday, expiration will move to the business day immediately prior.
                     var twentyFifth = new DateTime(time.Year,time.Month,25);
@@ -2352,33 +2275,10 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GulfCoastCBOBGasolineA2PlattsVsRBOBGasoline;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // 36 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
-                })
-            },
-            // Clearbrook Bakken Sweet Crude Oil Monthly Index (Net Energy) (CSW): https://www.cmegroup.com/trading/energy/crude-oil/clearbrook-bakken-crude-oil-index-net-energy_contract_specifications.html
-            {Symbol.Create(Futures.Energy.ClearbrookBakkenSweetCrudeOilMonthlyIndexNetEnergy, SecurityType.Future, Market.NYMEX), (time =>
-                {
-                    // Monthly contracts listed for the current year and the next 3 calendar years.
-                    // Trading terminates one Canadian business day prior to the Notice of Shipments (NOS) date on the Enbridge Pipeline. The NOS date occurs on or about the 20th calendar day of the month, subject to confirmation by Enbridge Pipeline. The official schedule for the NOS dates will be made publicly available by Enbridge.
-                    // This report is behind a portal that requires registration (privately). As such, we cannot access the notice of shipment dates, but we can keep track
-                    // of the CME group's website in order to discover the NOS dates
-                    // Publication dates are also erratic. We must maintain a separate list from MHDB in order to keep track of these days
-                    DateTime publicationDate;
-
-                    if (!EnbridgeNoticeOfShipmentDates.TryGetValue(time, out publicationDate))
-                    {
-                        publicationDate = new DateTime(time.Year, time.Month, 21).AddMonths(-1);
-                    }
-                    do
-                    {
-                        publicationDate = publicationDate.AddDays(-1);
-                    }
-                    while (!publicationDate.IsCommonBusinessDay());
-
-                    return publicationDate;
                 })
             },
             // WTI Financial (CSX): https://www.cmegroup.com/trading/energy/crude-oil/west-texas-intermediate-wti-crude-oil-calendar-swap-futures_contract_specifications.html
@@ -2386,7 +2286,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.WTIFinancial;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 8 calendar years.
                     // Trading shall cease on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2400,7 +2300,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.ChicagoEthanolPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 36 consecutive months
                     // Trading terminates on the last business day of the contract month
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2411,7 +2311,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.SingaporeMogas92UnleadedPlattsBrentCrackSpread;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next calendar year.
                     // Trading shall cease on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2425,7 +2325,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.DubaiCrudeOilPlattsFinancial;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next five calendar years.
                     // Trading shall cease on the last London and Singapore business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2439,7 +2339,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.JapanCnFNaphthaPlattsBALMO;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly BALMO contracts listed for 3 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2450,7 +2350,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Energy.Ethanol;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 36 consecutive months
                     // Trading terminates on 3rd business day of the contract month in "ctm"
 
@@ -2464,7 +2364,7 @@ namespace QuantConnect.Securities.Future
                     // Trading ceases on the last business day of the contract month.
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.EuropeanNaphthaPlattsCrackSpread;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
 
                     while (holidays.Contains(lastBusinessDay) || !lastBusinessDay.IsCommonBusinessDay())
@@ -2482,7 +2382,7 @@ namespace QuantConnect.Securities.Future
                     // Trading shall cease on the last business day of the contract month.
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.EuropeanPropaneCIFARAArgusVsNaphthaCargoesCIFNWEPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
 
                     while (holidays.Contains(lastBusinessDay) || !lastBusinessDay.IsCommonBusinessDay())
@@ -2498,7 +2398,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.SingaporeFuelOil380cstPlattsVsEuropeanThreePointFivePercentFuelOilBargesFOBRdamPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 5 calendar years.
                     // Trading terminates on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2516,7 +2416,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.EastWestGasolineSpreadPlattsArgus;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 12 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2529,7 +2429,7 @@ namespace QuantConnect.Securities.Future
                     // Trading terminates on the last business day of the contract month.
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.EastWestNaphthaJapanCFvsCargoesCIFNWESpreadPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
 
                     while (holidays.Contains(lastBusinessDay) || !lastBusinessDay.IsCommonBusinessDay())
@@ -2545,7 +2445,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.RBOBGasolineVsEurobobOxyNWEBargesArgusThreeHundredFiftyThousandGallons;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 36 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2556,7 +2456,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.ThreePointFivePercentFuelOilBargesFOBRdamPlattsCrackSpread;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 4 calendar years.
                     // Trading ceases on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2574,7 +2474,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.FreightRouteTC14Baltic;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 5 consecutive years.
                     // Trading terminates on the last business day of the contract month
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2594,7 +2494,7 @@ namespace QuantConnect.Securities.Future
                     // Trading ceases on the last business day of the contract month.
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.OnePercentFuelOilCargoesFOBNWEPlattsVsThreePointFivePercentFuelOilBargesFOBRdamPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
 
                     while (holidays.Contains(lastBusinessDay) || !lastBusinessDay.IsCommonBusinessDay())
@@ -2610,7 +2510,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.GulfCoastHSFOPlattsVsEuropeanThreePointFivePercentFuelOilBargesFOBRdamPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 36 consecutive months
                     // Trading shall cease on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -2628,7 +2528,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.WTIHoustonCrudeOil;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed through and including Dec-21
                     // Trading terminates 3 business days prior to the twenty-fifth calendar day of the month prior to the contract month.  If the twenty-fifth calendar day is not a business day, trading terminates 3 business days prior to the business day preceding the twenty-fifth calendar day of the month prior to the contract month.
                     var twentyFifthDayInPriorMonth = new DateTime(time.Year, time.Month, 25).AddMonths(-1);
@@ -2652,7 +2552,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.NaturalGasHenryHubLastDayFinancial;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 12 calendar years.
                     // Trading terminates on the third last business day of the month prior to the contract month.
                     var previousMonth = time.AddMonths(-1);
@@ -2666,7 +2566,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.HeatingOil;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 3 calendar years and 1 additional month.
                     // Trading in a current month shall cease on the last business day of the month preceding the delivery month.
                     var precedingMonth = time.AddMonths(-1);
@@ -2678,7 +2578,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.NaturalGasHenryHubPenultimateFinancial;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 5 calendar years.
                     // Trading terminates on the 4th last business day of the month prior to the contract month.
                     var previousMonth = time.AddMonths(-1);
@@ -2691,7 +2591,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.WTIHoustonArgusVsWTITradeMonth;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 3 calendar years.
                     // Trading terminates on the last business day that falls on or before the 25th calendar day of the month prior to the contract month. If the 25th calendar day is a weekend or holiday, trading shall cease on the first business day prior to the 25th calendar day.
                     var twentyFifthPreviousMonth = new DateTime(time.Year, time.Month, 25).AddMonths(-1);
@@ -2708,7 +2608,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.Gasoline;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 3 calendar years and 1 additional month.
                     // Trading in a current delivery month shall cease on the last business day of the month preceding the delivery month.
                     var precedingMonth = time.AddMonths(-1);
@@ -2720,7 +2620,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.NaturalGas;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next 12 calendar years.
                     //Trading of any delivery month shall cease three (3) business days prior to the first day of the delivery month. In the event that the official Exchange holiday schedule changes subsequent to the listing of a Natural Gas futures, the originally listed expiration date shall remain in effect.In the event that the originally listed expiration day is declared a holiday, expiration will move to the business day immediately prior.
                     var firstDay = new DateTime(time.Year,time.Month,1);
@@ -2732,7 +2632,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.ICE;
                     var symbol = Futures.Energy.BrentCrude;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Up to 96 consecutive months
                     //Trading shall cease at the end of the designated settlement period on the last Business Day of the second month
                     //preceding the relevant contract month (e.g. the March contract month will expire on the last Business Day of January).
@@ -2748,7 +2648,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.ICE;
                     var symbol = Futures.Energy.LowSulfurGasoil;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Up to 96 consecutive months
                     //Trading shall cease at 12:00 hours London Time, 2 business days prior to the 14th calendar day of the delivery month.
                     var fourteenthDay = new DateTime(time.Year,time.Month,14);
@@ -2762,7 +2662,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Meats.LiveCattle;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts of (Feb, Apr, Jun, Aug, Oct, Dec) listed for 9 months
                     while (!FutureExpirationCycles.GJMQVZ.Contains(time.Month))
                     {
@@ -2779,7 +2679,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Meats.LeanHogs;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     /*
                      2 monthly contracts of:
                     Feb listed in August
@@ -2808,7 +2708,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Meats.FeederCattle;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts of (Jan, Mar, Apr, May, Aug, Sep, Oct, Nov) listed for 8 months
                     while (!FutureExpirationCycles.FHJKQUVX.Contains(time.Month))
                     {
@@ -2858,7 +2758,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.ICE;
                     var symbol = Futures.Softs.Cotton2;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // March, May, July, October, December
                     while (!FutureExpirationCycles.HKNVZ.Contains(time.Month))
                     {
@@ -2876,8 +2776,8 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.ICE;
                     var symbol = Futures.Softs.OrangeJuice;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-					
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
                     // January, March, May, July, September, November.
                     while (!FutureExpirationCycles.FHKNUX.Contains(time.Month))
                     {
@@ -2892,7 +2792,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.ICE;
                     var symbol = Futures.Softs.Coffee;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // March, May, July, September, December.
                     while (!FutureExpirationCycles.HKNUZ.Contains(time.Month))
                     {
@@ -2913,7 +2813,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.ICE;
                     var symbol = Futures.Softs.Sugar11;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // March, May, July and October
                     while (!FutureExpirationCycles.HKNV.Contains(time.Month))
                     {
@@ -2931,7 +2831,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Softs.Sugar11CME;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Trading is conducted in the March, May, July, and October cycle for the next 24 months.
                     while (!FutureExpirationCycles.HKNV.Contains(time.Month))
                     {
@@ -2948,7 +2848,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.ICE;
                     var symbol = Futures.Softs.Cocoa;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // March, May, July, September, December
                     while (!FutureExpirationCycles.HKNUZ.Contains(time.Month))
                     {
@@ -2964,79 +2864,12 @@ namespace QuantConnect.Securities.Future
                     return FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 12, holidays);
                 })
             },
-            // Dairy Group
-            // Cash-settled Butter (CB): https://www.cmegroup.com/trading/agricultural/dairy/cash-settled-butter_contract_specifications.html
-            {Symbol.Create(Futures.Dairy.CashSettledButter, SecurityType.Future, Market.CME), (time =>
-                {
-                    var market = Market.CME;
-                    var symbol = Futures.Dairy.CashSettledButter;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-                    // Monthly contracts listed for 24 consecutive months
-                    // Trading shall terminate on the business day immediately preceding the day on which the USDA announces the Butter price for that contract month. (LTD 12:10 p.m.)
-                    return FuturesExpiryUtilityFunctions.DairyLastTradeDate(time, holidays);
-                })
-            },
-            // Cash-Settled Cheese (CSC): https://www.cmegroup.com/trading/agricultural/dairy/cheese_contract_specifications.html
-            {Symbol.Create(Futures.Dairy.CashSettledCheese, SecurityType.Future, Market.CME), (time =>
-                {
-                    var market = Market.CME;
-                    var symbol = Futures.Dairy.CashSettledCheese;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-                    // Monthly contracts listed for 24 consecutive months
-                    // Trading shall terminate on the business day immediately preceding the release date for the USDA monthly weighted average price in the U.S. for cheese. LTD close is at 12:10 p.m. Central Time
-                    return FuturesExpiryUtilityFunctions.DairyLastTradeDate(time, holidays);
-                })
-            },
-            // Class III Milk (DC): https://www.cmegroup.com/trading/agricultural/dairy/class-iii-milk_contract_specifications.html
-            {Symbol.Create(Futures.Dairy.ClassIIIMilk, SecurityType.Future, Market.CME), (time =>
-                {
-                    var market = Market.CME;
-                    var symbol = Futures.Dairy.ClassIIIMilk;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-                    // Monthly contracts listed for 24 consecutive months
-                    // Trading shall terminate on the business day immediately preceding the day on which the USDA announces the Class III price for that contract month (LTD 12:10 p.m.)
-                    return FuturesExpiryUtilityFunctions.DairyLastTradeDate(time, holidays);
-                })
-            },
-            // Dry Whey (DY): https://www.cmegroup.com/trading/agricultural/dairy/dry-whey_contract_specifications.html
-            {Symbol.Create(Futures.Dairy.DryWhey, SecurityType.Future, Market.CME), (time =>
-                {
-                    var market = Market.CME;
-                    var symbol = Futures.Dairy.DryWhey;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-                    // Monthly contracts listed for 24 consecutive months
-                    // Trading shall terminate on the business day immediately preceding the day on which the USDA announces the Dry Whey price for that contract month. (LTD 12:10 p.m.)
-                    return FuturesExpiryUtilityFunctions.DairyLastTradeDate(time, holidays);
-                })
-            },
-            // Class IV Milk (GDK): https://www.cmegroup.com/trading/agricultural/dairy/class-iv-milk_contract_specifications.html
-            {Symbol.Create(Futures.Dairy.ClassIVMilk, SecurityType.Future, Market.CME), (time =>
-                {
-                    var market = Market.CME;
-                    var symbol = Futures.Dairy.ClassIVMilk;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-                    // Monthly contracts listed for 24 consecutive months
-                    // Trading shall terminate on the business day immediately preceding the day on which the USDA announces the Class IV price for that contract month. (LTD 12:10 p.m.)
-                    return FuturesExpiryUtilityFunctions.DairyLastTradeDate(time, holidays);
-                })
-            },
-            // Non-fat Dry Milk (GNF): https://www.cmegroup.com/trading/agricultural/dairy/nonfat-dry-milk_contract_specifications.html
-            {Symbol.Create(Futures.Dairy.NonfatDryMilk, SecurityType.Future, Market.CME), (time =>
-                {
-                    var market = Market.CME;
-                    var symbol = Futures.Dairy.NonfatDryMilk;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
-                    // Monthly contracts listed for 24 consecutive months
-                    // Trading shall terminate on the business day immediately preceding the day on which the USDA announces the Nonfat Dry Milk price for that contract month. (LTD 12:10 p.m.)
-                    return FuturesExpiryUtilityFunctions.DairyLastTradeDate(time, holidays);
-                })
-            },
             // Micro Gold Futures (MGC): https://www.cmegroup.com/markets/metals/precious/e-micro-gold.contractSpecs.html
             {Symbol.Create(Futures.Metals.MicroGold, SecurityType.Future, Market.COMEX), (time =>
                 {
                     var market = Market.COMEX;
                     var symbol = Futures.Metals.MicroGold;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Four bi-monthly contracts (Feb/2, Apr/4, Jun/6, Aug/8, Oct/10, Dec/12 cycle)
                     while (!FutureExpirationCycles.GJMQVZ.Contains(time.Month))
                     {
@@ -3056,7 +2889,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.COMEX;
                     var symbol = Futures.Metals.MicroSilver;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the third last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 3, holidays);
@@ -3070,7 +2903,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.COMEX;
                     var symbol = Futures.Metals.MicroGoldTAS;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the third last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 3, holidays);
@@ -3084,7 +2917,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Metals.MicroPalladium;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the third last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 3, holidays);
@@ -3098,7 +2931,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYSELIFFE;
                     var symbol = Futures.Metals.MiniNYGold;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Trading terminates on the third last business day of the contract month @13:30
 
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 3, holidays);
@@ -3111,7 +2944,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYSELIFFE;
                     var symbol = Futures.Metals.MiniNYSilver;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Trading terminates on the third last business day of the contract month @13:25
 
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 3, holidays);
@@ -3124,7 +2957,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYSELIFFE;
                     var symbol = Futures.Metals.Gold100Oz;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Trading terminates on the third last business day of the contract month @13:30
 
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 3, holidays);
@@ -3137,7 +2970,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYSELIFFE;
                     var symbol = Futures.Metals.Silver5000Oz;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Trading terminates on the third last business day of the contract month @13:25
 
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 3, holidays);
@@ -3150,7 +2983,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.MicroY10TreasuryNote;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -3164,7 +2997,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.MicroY30TreasuryBond;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -3178,7 +3011,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.MicroY2TreasuryBond;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -3192,7 +3025,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CBOT;
                     var symbol = Futures.Financials.MicroY5TreasuryBond;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts
                     // Trading terminates on the last business day of the contract month.
                     var lastBusinessDay = FuturesExpiryUtilityFunctions.NthLastBusinessDay(time, 1, holidays);
@@ -3206,7 +3039,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroEUR;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 2 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -3226,7 +3059,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroAUD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 2 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -3246,7 +3079,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroGBP;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 2 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -3266,7 +3099,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroCADUSD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 2 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -3286,7 +3119,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroJPY;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 2 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -3306,7 +3139,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroCHF;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 2 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -3326,7 +3159,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroUSDJPY;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Quarterly contracts (Mar, Jun, Sep, Dec) listed for 2 consecutive quarters
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -3346,7 +3179,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroINRUSD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 12 consecutive months.
 
                     // Trading terminates at 12:00 noon Mumbai time two Indian business days immediately preceding the last Indian
@@ -3364,7 +3197,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroCAD;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Two months in the March quarterly cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -3384,7 +3217,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroUSDCHF;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Two months in the March quarterly cycle (Mar, Jun, Sep, Dec)
                     while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
                     {
@@ -3404,7 +3237,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroUSDCNH;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 12 consecutive months.
 
                     // Trading terminates at 11:00 a.m. Hong Kong time on the second Hong Kong business day prior
@@ -3425,7 +3258,7 @@ namespace QuantConnect.Securities.Future
                     }
 
                     // Trading terminates at 9:30 a.m. ET on the 3rd Friday of the contract month.
-                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time, Symbol.Create(Futures.Indices.MicroSP500EMini, SecurityType.Future, Market.CME));
                     return thirdFriday.Add(new TimeSpan(13,30,0));
                 })
             },
@@ -3439,7 +3272,7 @@ namespace QuantConnect.Securities.Future
                     }
 
                     // Trading terminates at 9:30 a.m. ET on the 3rd Friday of the contract month.
-                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time, Symbol.Create(Futures.Indices.MicroNASDAQ100EMini, SecurityType.Future, Market.CME));
                     return thirdFriday.Add(new TimeSpan(13,30,0));
                 })
             },
@@ -3453,7 +3286,7 @@ namespace QuantConnect.Securities.Future
                     }
 
                     // Trading terminates at 9:30 a.m. ET on the 3rd Friday of the contract month.
-                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time, Symbol.Create(Futures.Indices.MicroRussell2000EMini, SecurityType.Future, Market.CME));
                     return thirdFriday.Add(new TimeSpan(13,30,0));
                 })
             },
@@ -3467,7 +3300,7 @@ namespace QuantConnect.Securities.Future
                     }
 
                     // Trading can occur up to 9:30 a.m. Eastern Time (ET) on the 3rd Friday of the contract month
-                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                    var thirdFriday = FuturesExpiryUtilityFunctions.ThirdFriday(time, Symbol.Create(Futures.Indices.MicroDow30EMini, SecurityType.Future, Market.CBOT));
                     return thirdFriday.Add(new TimeSpan(13,30,0));
                 })
             },
@@ -3476,7 +3309,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MicroCrudeOilWTI;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 12 consecutive months and additional Jun and Dec contract months
 
                     // Trading terminates 4 business days prior to the 25th calendar day of the month prior to the
@@ -3500,7 +3333,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MicroSingaporeFOBMarineFuelZeroPointFivePercetPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and next 3 calendar years
                     // Add monthly contracts for a new calendar year following the termination of trading in the
                     // December contract of the current year.
@@ -3517,7 +3350,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MicroGasoilZeroPointOnePercentBargesFOBARAPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 36 consecutive months
 
                     // Trading terminates on the last London business day of the contract month.
@@ -3532,7 +3365,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MicroEuropeanFOBRdamMarineFuelZeroPointFivePercentBargesPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and next 3 calendar years.
                     // Add monthly contracts for a new calendar year following the termination of trading
                     // in the December contract of the current year.
@@ -3549,7 +3382,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MicroEuropeanThreePointFivePercentOilBargesFOBRdamPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and 5 calendar years.Monthly contracts for a new calendar
                     // year will be added following the termination of trading in  the December contract of the current year.
 
@@ -3565,7 +3398,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MicroEuropeanThreePointFivePercentOilBargesFOBRdamPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and 5 calendar years.Monthly contracts for a new calendar
                     // year will be added following the termination of trading in  the December contract of the current year.
 
@@ -3581,7 +3414,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MicroCoalAPIFivefobNewcastleArgusMcCloskey;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for the current year and the next calendar year. Monthly contracts
                     // for a new calendar year will be added following the termination of trading in the December
                     // contract of the current year.
@@ -3610,7 +3443,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.NYMEX;
                     var symbol = Futures.Energy.MicroEuropeanThreePointFivePercentFuelOilCargoesFOBMedPlatts;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 36 consecutive months
 
                     // Trading terminates on the last business day of the contract month.
@@ -3625,7 +3458,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroEther;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 6 consecutive months and 2 additional Dec contract months.
 
                     // Trading terminates at 4:00 p.m. London time on the last Friday of the contract month that
@@ -3649,7 +3482,7 @@ namespace QuantConnect.Securities.Future
                 {
                     var market = Market.CME;
                     var symbol = Futures.Currencies.MicroBTC;
-                    var holidays = FuturesExpiryUtilityFunctions.GetHolidays(market, symbol);
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
                     // Monthly contracts listed for 6 consecutive months and 2 additional Dec contract months.
                     // If the 6 consecutive months includes Dec, list only 1 additional Dec contract month.
 
@@ -3666,7 +3499,81 @@ namespace QuantConnect.Securities.Future
 
                     return lastFriday.Add(new TimeSpan(15, 0, 0));
                 })
+            },
+            // BTIC on Micro Ether Futures (MRB): https://www.cmegroup.com/markets/cryptocurrencies/ether/micro-ether.contractSpecs.html
+            {Symbol.Create(Futures.Currencies.BTICMicroEther, SecurityType.Future, Market.CME), (time =>
+                {
+                    // Monthly contracts listed for 6 consecutive months and 2 additional Dec contract months.
+
+                    // Trading terminates at 4:00 p.m. London time on the last Friday of the contract month.
+                    // If this is not both a London and U.S. business day, trading terminates on the prior
+                    // London and the U.S. business day.
+
+                    // BTIC: Trading terminates at 4:00 p.m. London time on the last Thursday of the contract
+                    // month.If this is not both a London and U.S. business day, trading terminates on the prior
+                    // London and the U.S. business day.
+
+                    var lastThursday = FuturesExpiryUtilityFunctions.LastThursday(time);
+
+                    var market = Market.CME;
+                    var symbol = Futures.Currencies.BTICMicroEther;
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
+                    while (holidays.Contains(lastThursday))
+                    {
+                        lastThursday = FuturesExpiryUtilityFunctions.AddBusinessDays(lastThursday, -1, holidays);
+                    }
+
+                    return lastThursday.Add(new TimeSpan(15, 0, 0));
+                })
+            },
+            // BTIC on Micro Bitcoin Futures (MIB): https://www.cmegroup.com/markets/cryptocurrencies/bitcoin/micro-bitcoin.contractSpecs.html
+            {Symbol.Create(Futures.Currencies.BTICMicroBTC, SecurityType.Future, Market.CME), (time =>
+                {
+                    // Monthly contracts listed for 6 consecutive months and 2 additional Dec contract months.
+                    // If the 6 consecutive months includes Dec, list only 1 additional Dec contract month.
+
+                    // Trading terminates at 4:00 p.m. London time on the last Friday of the contract month.
+                    // If this is not both a London and U.S. business day, trading terminates on the prior
+                    // London and the U.S. business day.
+
+                    // BTIC: Trading terminates at 4:00 p.m. London time on the last Thursday of the contract
+                    // month.If this is not both a London and U.S. business day, trading terminates on the prior
+                    // London and the U.S. business day.
+
+                    var lastThursday = FuturesExpiryUtilityFunctions.LastThursday(time);
+
+                    var market = Market.CME;
+                    var symbol = Futures.Currencies.BTICMicroBTC;
+                    var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+
+                    while (holidays.Contains(lastThursday))
+                    {
+                        lastThursday = FuturesExpiryUtilityFunctions.AddBusinessDays(lastThursday, -1, holidays);
+                    }
+
+                    return lastThursday.Add(new TimeSpan(15, 0, 0));
+                })
             }
         };
+
+        private static Func<DateTime, DateTime> GetDAXFuturesExpiry(string market, string symbol)
+        {
+            return time =>
+            {
+                // Quarterly contracts (Mar/3, Jun/6 , Sep/9 , Dec/12) listed for 9 consecutive quarters and 3 additional December contract months.
+                while (!FutureExpirationCycles.HMUZ.Contains(time.Month))
+                {
+                    time = time.AddMonths(1);
+                }
+
+                // Trading can occur up to 1:00pm CET on the 3rd Friday of the contract month
+                var lastTradingDay = FuturesExpiryUtilityFunctions.ThirdFriday(time);
+                var holidays = FuturesExpiryUtilityFunctions.GetExpirationHolidays(market, symbol);
+                lastTradingDay = FuturesExpiryUtilityFunctions.AddBusinessDaysIfHoliday(lastTradingDay, -1, holidays);
+
+                return lastTradingDay.Add(new TimeSpan(13, 0, 0));
+            };
+        }
     }
 }

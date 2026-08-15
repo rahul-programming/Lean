@@ -41,7 +41,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public override long DataPoints => 163415;
+        public override long DataPoints => 70262;
 
         /// <summary>
         /// This is used by the regression test system to indicate what the expected statistics are from running the algorithm
@@ -59,7 +59,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "-3.314%"},
             {"Sharpe Ratio", "-6.359"},
             {"Sortino Ratio", "-11.237"},
-            {"Probabilistic Sharpe Ratio", "9.333%"},
+            {"Probabilistic Sharpe Ratio", "9.257%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
@@ -74,6 +74,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$52000000.00"},
             {"Lowest Capacity Asset", "GC VL5E74HP3EE5"},
             {"Portfolio Turnover", "43.77%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "dcdaafcefa47465962ace2759ed99c91"}
         };
     }

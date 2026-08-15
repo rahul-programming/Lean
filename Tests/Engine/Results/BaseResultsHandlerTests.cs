@@ -94,7 +94,7 @@ namespace QuantConnect.Tests.Engine.Results
             protectedMockResultHandler.Setup("SampleEquity", ItExpr.IsAny<DateTime>());
             protectedMockResultHandler.Setup("SampleBenchmark", ItExpr.IsAny<DateTime>(), ItExpr.IsAny<decimal>());
             protectedMockResultHandler
-                .Setup<decimal>("GetBenchmarkValue", ItExpr.IsAny<DateTime>())
+                .Setup<decimal>("GetBenchmarkValue")
                 .Returns(0m);
             protectedMockResultHandler.Setup("SamplePerformance", ItExpr.IsAny<DateTime>(), ItExpr.IsAny<decimal>());
             protectedMockResultHandler.Setup("SampleDrawdown", ItExpr.IsAny<DateTime>(), ItExpr.IsAny<decimal>());
@@ -144,7 +144,7 @@ namespace QuantConnect.Tests.Engine.Results
 
             // BaseResultHandler.Algorithm property accessed once by BaseResultHandler.SampleExposure()
             // and once by BaseResultHandler.GetPortfolioValue() + 2 for sampling current equity value
-            protectedMockResultHandler.VerifyGet<IAlgorithm>("Algorithm", Times.Exactly(5));
+            protectedMockResultHandler.VerifyGet<IAlgorithm>("Algorithm", Times.Exactly(6));
 
             // Sample should've been called twice, by BaseResultHandler.SampleExposure(), once for the long and once for the short positions
             protectedMockResultHandler.Verify("Sample", Times.Exactly(2), ItExpr.IsAny<string>(), ItExpr.IsAny<string>(),
@@ -199,6 +199,14 @@ namespace QuantConnect.Tests.Engine.Results
                 ResultsDestinationFolder = folder;
             }
             public string GetResultsDestinationFolder => ResultsDestinationFolder;
+
+            public void SetAlgorithmDirect(IAlgorithm algorithm)
+            {
+                Algorithm = algorithm;
+            }
+
+            public void CallSetAlgorithmState(string error, string stack) => SetAlgorithmState(error, stack);
+
             protected override void Run()
             {
                 throw new NotImplementedException();
@@ -222,6 +230,33 @@ namespace QuantConnect.Tests.Engine.Results
             protected override void AddToLogStore(string message)
             {
             }
+        }
+
+        [Test]
+        public void RuntimeErrorSetsAlgorithmRunTimeErrorAndStatus()
+        {
+            var handler = new BaseResultsHandlerTestable(AlgorithmId);
+            var algorithm = new QCAlgorithm();
+            handler.SetAlgorithmDirect(algorithm);
+
+            handler.CallSetAlgorithmState("Something went wrong", "stack trace here");
+
+            Assert.IsNotNull(algorithm.RunTimeError);
+            Assert.AreEqual("Something went wrong", algorithm.RunTimeError.Message);
+            Assert.AreEqual(AlgorithmStatus.RuntimeError, algorithm.Status);
+        }
+
+        [Test]
+        public void RuntimeErrorDoesNotOverwriteExistingRunTimeError()
+        {
+            var handler = new BaseResultsHandlerTestable(AlgorithmId);
+            var algorithm = new QCAlgorithm();
+            handler.SetAlgorithmDirect(algorithm);
+
+            handler.CallSetAlgorithmState("First error", "");
+            handler.CallSetAlgorithmState("Second error", "");
+
+            Assert.AreEqual("First error", algorithm.RunTimeError.Message);
         }
 
         private struct SampleParams

@@ -37,9 +37,9 @@ namespace QuantConnect.Algorithm.CSharp
 
             var equity = AddEquity("GOOG");
 
-            _optionSymbol = OptionChainProvider.GetOptionContractList(equity.Symbol, Time)
-                .OrderBy(symbol => symbol.ID.StrikePrice)
-                .ThenByDescending(symbol => symbol.ID.Date)
+            _optionSymbol = OptionChain(equity.Symbol)
+                .OrderBy(x => x.ID.StrikePrice)
+                .ThenByDescending(x => x.ID.Date)
                 .First(optionContract => optionContract.ID.OptionRight == OptionRight.Call);
             var option = AddOptionContract(_optionSymbol);
 
@@ -105,12 +105,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 7122;
+        public long DataPoints => 7123;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -146,9 +146,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0"},
             {"Total Fees", "$2.00"},
             {"Estimated Strategy Capacity", "$720000.00"},
-            {"Lowest Capacity Asset", "GOOCV WHEA9CWI9A86|GOOCV VP83T1ZUHROL"},
+            {"Lowest Capacity Asset", "GOOCV WHEA9CWIDKJQ|GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "11.63%"},
-            {"OrderListHash", "0a3ff33e46a1ca590b9163b07fcd7e0c"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "d0d7b2b1f483d16e72863ecf3bbc3ed6"}
         };
     }
 }

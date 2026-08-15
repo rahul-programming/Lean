@@ -40,7 +40,6 @@ namespace QuantConnect.Lean.Engine.DataFeeds
         private readonly CurrencySubscriptionDataConfigManager _currencySubscriptionDataConfigManager;
         private readonly InternalSubscriptionManager _internalSubscriptionManager;
         private bool _initializedSecurityBenchmark;
-        private readonly IDataProvider _dataProvider;
         private bool _anyDoesNotHaveFundamentalDataWarningLogged;
         private readonly SecurityChangesConstructor _securityChangesConstructor;
 
@@ -59,7 +58,6 @@ namespace QuantConnect.Lean.Engine.DataFeeds
             IDataProvider dataProvider,
             Resolution internalConfigResolution = Resolution.Minute)
         {
-            _dataProvider = dataProvider;
             _algorithm = algorithm;
             _securityService = securityService;
             _pendingRemovalsManager = new PendingRemovalsManager(algorithm.Transactions);
@@ -130,7 +128,7 @@ namespace QuantConnect.Lean.Engine.DataFeeds
 
                     // if the input is already fundamental data we just need to filter it and pass it through
                     var hasFundamentalData = universeData.Data.Count > 0 && universeData.Data[0] is Fundamental;
-                    if(hasFundamentalData)
+                    if (hasFundamentalData)
                     {
                         // Remove selected symbols that does not have fine fundamental data
                         var anyDoesNotHaveFundamentalData = false;
@@ -139,7 +137,8 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                         // which do not use coarse data as underlying, in which case it could happen that we try to load fine fundamental data that is missing, but no problem,
                         // 'FineFundamentalSubscriptionEnumeratorFactory' won't emit it
                         var set = selectSymbolsResult.ToHashSet();
-                        fineCollection.Data.AddRange(universeData.Data.OfType<Fundamental>().Where(fundamental => {
+                        fineCollection.Data.AddRange(universeData.Data.OfType<Fundamental>().Where(fundamental =>
+                        {
                             // we remove to we distict by symbol
                             if (set.Remove(fundamental.Symbol))
                             {
@@ -209,13 +208,13 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                 // don't remove if the universe wants to keep him in
                 if (!universe.CanRemoveMember(dateTimeUtc, security)) continue;
 
-                if (!member.Security.IsDelisted)
+                if (!member.Security.IsDelisted && !_pendingRemovalsManager.IsPendingForRemoval(member))
                 {
                     // TODO: here we are not checking if other universes have this security still selected
                     _securityChangesConstructor.Remove(member.Security, member.IsInternal);
                 }
 
-                RemoveSecurityFromUniverse(_pendingRemovalsManager.TryRemoveMember(security, universe),
+                RemoveSecurityFromUniverse(_pendingRemovalsManager.TryRemoveMember(member, universe),
                     dateTimeUtc,
                     algorithmEndDateUtc);
             }
@@ -254,6 +253,13 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                 foreach (var request in universe.GetSubscriptionRequests(security, dateTimeUtc, algorithmEndDateUtc,
                                                                          _algorithm.SubscriptionManager.SubscriptionDataConfigService))
                 {
+                    if (!request.TradableDaysInDataTimeZone.Any())
+                    {
+                        // Remove the config from the data manager. universe.GetSubscriptionRequests() might have added the configs
+                        _dataManager.RemoveSubscription(request.Configuration, universe);
+                        continue;
+                    }
+
                     if (security.Symbol == request.Configuration.Symbol // Just in case check its the same symbol, else AddData will throw.
                         && !security.Subscriptions.Contains(request.Configuration))
                     {
@@ -308,6 +314,8 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                 Log.Debug("UniverseSelection.ApplyUniverseSelection(): " + dateTimeUtc + ": " + securityChanges);
             }
 
+            SeedAddedSecurities(securityChanges);
+
             return securityChanges;
         }
 
@@ -353,7 +361,7 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                         resolution = supportedResolutions.OrderByDescending(x => x).First();
                     }
 
-                    var subscriptionList = new List<Tuple<Type, TickType>>() {subscriptionType};
+                    var subscriptionList = new List<Tuple<Type, TickType>>() { subscriptionType };
                     var dataConfig = _algorithm.SubscriptionManager.SubscriptionDataConfigService.Add(
                         securityBenchmark.Security.Symbol,
                         resolution,
@@ -411,9 +419,32 @@ namespace QuantConnect.Lean.Engine.DataFeeds
         /// <summary>
         /// Checks the current subscriptions and adds necessary currency pair feeds to provide real time conversion data
         /// </summary>
-        public void EnsureCurrencyDataFeeds(SecurityChanges securityChanges)
+        /// <param name="securityChanges">The security changes to consume</param>
+        /// <param name="seedNewCurrencies">Whether to seed the conversion rate of newly added currencies with their last
+        /// known price. The setup handler passes false because it performs its own (optionally white-listed) seeding</param>
+        public void EnsureCurrencyDataFeeds(SecurityChanges securityChanges, bool seedNewCurrencies = true)
         {
-            _currencySubscriptionDataConfigManager.EnsureCurrencySubscriptionDataConfigs(securityChanges, _algorithm.BrokerageModel);
+            var newCurrenciesAdded = _currencySubscriptionDataConfigManager.EnsureCurrencySubscriptionDataConfigs(securityChanges, _algorithm.BrokerageModel);
+
+            // Only scan the cashbook and seed when a new currency was actually introduced, either as a new
+            // internal conversion feed or as a new cash entry whose conversion security is an already added one
+            if (!seedNewCurrencies || !newCurrenciesAdded)
+            {
+                return;
+            }
+
+            // Seed the new conversion rates with their last known price so they are non-zero right away, instead of
+            // waiting for the first conversion pair bar to arrive. Otherwise a conversion needed in that gap would
+            // throw. This is the same thing BaseSetupHandler does during setup, but for cashes added at runtime.
+            try
+            {
+                AlgorithmUtils.SeedCurrencyConversionRates(_algorithm);
+            }
+            catch (Exception err)
+            {
+                // Seeding must never break the algorithm, the rate will be set on the first conversion pair bar
+                Log.Error($"UniverseSelection.EnsureCurrencyDataFeeds(): failed to seed runtime currency conversion rate(s): {err.Message}");
+            }
         }
 
         /// <summary>
@@ -425,9 +456,13 @@ namespace QuantConnect.Lean.Engine.DataFeeds
             {
                 // don't allow users to open a new position once delisted
                 security.IsDelisted = true;
-                security.IsTradable = false;
+                security.Reset();
 
-                if (_algorithm.Securities.Remove(data.Symbol))
+                _algorithm.Securities.Remove(data.Symbol);
+
+                // Add the security removal to the security changes but only if not pending for removal.
+                // If pending, the removed change event was already emitted for this security
+                if (!_pendingRemovalsManager.IsPendingForRemoval(security, isInternalFeed))
                 {
                     _securityChangesConstructor.Remove(security, isInternalFeed);
 
@@ -466,11 +501,14 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                         // if not used by any universe
                         if (!isActive)
                         {
-                            member.IsTradable = false;
+                            member.Reset();
                             // We need to mark this security as untradeable while it has no data subscription
                             // it is expected that this function is called while in sync with the algo thread,
                             // so we can make direct edits to the security here.
                             // We only clear the cache once the subscription is removed from the data stack
+                            // Note: Security.Reset() won't clear the cache, it only clears the data subscription
+                            // and marks it as non-tradable, because in some cases the cache needs to be kept,
+                            // like when delisting, which could lead to a liquidation or option exercise.
                             member.Cache.Reset();
 
                             _algorithm.Securities.Remove(member.Symbol);
@@ -484,14 +522,28 @@ namespace QuantConnect.Lean.Engine.DataFeeds
         {
             // create the new security, the algorithm thread will add this at the appropriate time
             Security security;
-            if (!pendingAdditions.TryGetValue(symbol, out security) && !_algorithm.Securities.TryGetValue(symbol, out security))
+            if (!pendingAdditions.TryGetValue(symbol, out security))
             {
-                security = _securityService.CreateSecurity(symbol, new List<SubscriptionDataConfig>(), universeSettings.Leverage, symbol.ID.SecurityType.IsOption(), underlying);
+                security = _securityService.CreateSecurity(symbol,
+                    (List<SubscriptionDataConfig>)null,
+                    universeSettings.Leverage,
+                    symbol.ID.SecurityType.IsOption(),
+                    underlying,
+                    // Securities will be seeded after all selections are applied
+                    seedSecurity: false);
 
                 pendingAdditions.Add(symbol, security);
             }
 
             return security;
+        }
+
+        private void SeedAddedSecurities(SecurityChanges changes)
+        {
+            if (_algorithm.Settings.SeedInitialPrices)
+            {
+                AlgorithmUtils.SeedSecurities(changes.AddedSecurities, _algorithm);
+            }
         }
     }
 }

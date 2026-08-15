@@ -32,7 +32,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             var option = AddIndexOption("SPX", Resolution.Hour);
             // BaroneAdesiWhaley model does not support European style options
-            option.PriceModel = OptionPriceModels.BaroneAdesiWhaley();
+            option.PriceModel = OptionPriceModels.QuantLib.BaroneAdesiWhaley();
 
             SetWarmup(7, Resolution.Daily);
 
@@ -42,7 +42,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public override long DataPoints => 114;
+        public override long DataPoints => 177;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -85,6 +85,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", ""},
             {"Portfolio Turnover", "0%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "d41d8cd98f00b204e9800998ecf8427e"}
         };
     }

@@ -155,7 +155,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "6.440%"},
             {"Sharpe Ratio", "-4.563"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "0.781%"},
+            {"Probabilistic Sharpe Ratio", "0.604%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
@@ -168,9 +168,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "-1.771"},
             {"Total Fees", "$0.00"},
             {"Estimated Strategy Capacity", "$3000.00"},
-            {"Lowest Capacity Asset", "SPX XL80P3GHDZXQ|SPX 31"},
+            {"Lowest Capacity Asset", "SPX XL80P3GHIA9A|SPX 31"},
             {"Portfolio Turnover", "23.97%"},
-            {"OrderListHash", "51f1bc2ea080df79748dc66c2520b782"}
+            {"Drawdown Recovery", "9"},
+            {"OrderListHash", "4b560d2a8cfae510c3c8dc92603470fc"}
         };
     }
 }

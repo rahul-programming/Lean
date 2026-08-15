@@ -43,14 +43,23 @@ class PythonDictionaryFeatureRegressionAlgorithm(QCAlgorithm):
         slice_bars = ', '.join([f'{x}' for x in slice.bars.values()])
 
         if "SPY" not in slice:
-            raise Exception('SPY (string) is not in Slice')
+            raise AssertionError('SPY (string) is not in Slice')
 
         if self.spy_symbol not in slice:
-            raise Exception('SPY (Symbol) is not in Slice')
+            raise AssertionError('SPY (Symbol) is not in Slice')
 
         spy = slice.get(self.spy_symbol)
         if spy is None:
-            raise Exception('SPY is not in Slice')
+            raise AssertionError('SPY is not in Slice')
+
+        if slice.contains_key(None):
+            raise AssertionError('Slice.contains_key(None) should return False instead of throwing')
+
+        if slice.get(None) is not None:
+            raise AssertionError('Slice.get(None) should return None instead of throwing')
+
+        if slice.bars.contains_key(None):
+            raise AssertionError('TradeBars.contains_key(None) should return False instead of throwing')
 
         for symbol, bar in slice.bars.items():
             self.plot(symbol, 'Price', bar.close)
@@ -61,18 +70,28 @@ class PythonDictionaryFeatureRegressionAlgorithm(QCAlgorithm):
         leverages = ', '.join([str(x.get_last_data()) for x in self.securities.values()])
 
         if "IBM" not in self.securities:
-            raise Exception('IBM (string) is not in Securities')
+            raise AssertionError('IBM (string) is not in Securities')
 
         if self.ibm_symbol not in self.securities:
-            raise Exception('IBM (Symbol) is not in Securities')
+            raise AssertionError('IBM (Symbol) is not in Securities')
 
         ibm = self.securities.get(self.ibm_symbol)
         if ibm is None:
-            raise Exception('ibm is None')
+            raise AssertionError('ibm is None')
 
         aapl = self.securities.get(self.aapl_symbol)
         if aapl is not None:
-            raise Exception('aapl is not None')
+            raise AssertionError('aapl is not None')
+
+        # A None key should behave like a missing key instead of throwing,
+        # e.g. when a symbol field is only assigned later in the algorithm
+        none_symbol = None
+        price = self.securities[none_symbol].price if self.securities.contains_key(none_symbol) else None
+        if price is not None:
+            raise AssertionError('Securities.contains_key(None) should return False instead of throwing')
+
+        if self.securities.get(none_symbol) is not None:
+            raise AssertionError('Securities.get(None) should return None instead of throwing')
 
         for symbol, security in self.securities.items():
             self.plot(symbol, 'Price', security.price)
@@ -82,18 +101,24 @@ class PythonDictionaryFeatureRegressionAlgorithm(QCAlgorithm):
         leverages = ', '.join([f'{x.symbol}: {x.leverage}' for x in self.portfolio.values()])
 
         if "AIG" not in self.securities:
-            raise Exception('AIG (string) is not in Portfolio')
+            raise AssertionError('AIG (string) is not in Portfolio')
 
         if self.aig_symbol not in self.securities:
-            raise Exception('AIG (Symbol) is not in Portfolio')
+            raise AssertionError('AIG (Symbol) is not in Portfolio')
 
         aig = self.portfolio.get(self.aig_symbol)
         if aig is None:
-            raise Exception('aig is None')
+            raise AssertionError('aig is None')
 
         aapl = self.portfolio.get(self.aapl_symbol)
         if aapl is not None:
-            raise Exception('aapl is not None')
+            raise AssertionError('aapl is not None')
+
+        if self.portfolio.contains_key(None):
+            raise AssertionError('Portfolio.contains_key(None) should return False instead of throwing')
+
+        if self.portfolio.get(None) is not None:
+            raise AssertionError('Portfolio.get(None) should return None instead of throwing')
 
         for symbol, holdings in self.portfolio.items():
             msg = f'{symbol}: {holdings.leverage}'
@@ -109,7 +134,7 @@ class PythonDictionaryFeatureRegressionAlgorithm(QCAlgorithm):
         bar = self.securities.pop("SPY")
         length = len(self.securities)
         if length != 2:
-            raise Exception(f'After popping SPY, Securities should have 2 elements, {length} found')
+            raise AssertionError(f'After popping SPY, Securities should have 2 elements, {length} found')
 
         securities_copy = self.securities.copy()
         self.securities.clear()    # Does not throw

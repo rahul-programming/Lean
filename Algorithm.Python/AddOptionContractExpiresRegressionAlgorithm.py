@@ -43,8 +43,8 @@ class AddOptionContractExpiresRegressionAlgorithm(QCAlgorithm):
             data: Slice object keyed by symbol containing the stock data
         '''
         if self._option == None:
-            options = self.option_chain_provider.get_option_contract_list(self._twx, self.time)
-            options = sorted(options, key=lambda x: x.id.symbol)
+            chain = self.option_chain(self._twx)
+            options = sorted(chain, key=lambda x: x.id.symbol)
 
             option = next((option
                            for option in options

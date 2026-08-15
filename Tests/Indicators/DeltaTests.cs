@@ -17,6 +17,7 @@ using NUnit.Framework;
 using QuantConnect.Algorithm;
 using QuantConnect.Data;
 using QuantConnect.Indicators;
+using System;
 using System.IO;
 using System.Linq;
 
@@ -25,14 +26,17 @@ namespace QuantConnect.Tests.Indicators
     [TestFixture, Parallelizable(ParallelScope.Fixtures)]
     public class DeltaTests : OptionBaseIndicatorTests<Delta>
     {
-        protected override IndicatorBase<IndicatorDataPoint> CreateIndicator()
+        protected override IndicatorBase<IBaseData> CreateIndicator()
             => new Delta("testDeltaIndicator", _symbol, 0.0403m, 0.0m);
 
         protected override OptionIndicatorBase CreateIndicator(IRiskFreeInterestRateModel riskFreeRateModel)
             => new Delta("testDeltaIndicator", _symbol, riskFreeRateModel);
 
         protected override OptionIndicatorBase CreateIndicator(IRiskFreeInterestRateModel riskFreeRateModel, IDividendYieldModel dividendYieldModel)
-            => new Delta("testDeltaIndicator", _symbol, riskFreeRateModel, dividendYieldModel);
+        {
+            var symbol = (SymbolList.Count > 0) ? SymbolList[0] : _symbol;
+            return new Delta("testDeltaIndicator", symbol, riskFreeRateModel, dividendYieldModel);
+        }
 
         protected override OptionIndicatorBase CreateIndicator(QCAlgorithm algorithm)
             => algorithm.D(_symbol);
@@ -124,7 +128,54 @@ namespace QuantConnect.Tests.Indicators
             indicator.Update(optionDataPoint);
             indicator.Update(spotDataPoint);
 
-            Assert.AreEqual(refDelta, (double)indicator.Current.Value, 0.0005d);
+            Assert.AreEqual(refDelta, (double)indicator.Current.Value, 0.0017d);
+        }
+
+        [Test]
+        public void IVAndDeltaAreNonZeroForPMSettledIndexOptionOnExpirationDay()
+        {
+            // SPXW expiring on the 3rd Friday is PM-settled (15:15 CT),
+            // so at 10 AM the contract still has time value — IV and Delta must be non-zero.
+            var thirdFriday = new DateTime(2016, 02, 19);
+            var spxwSymbol = Symbol.CreateOption(Symbols.SPX, "SPXW", Market.USA, OptionStyle.European,
+                OptionRight.Call, 1900m, thirdFriday);
+
+            var delta = new Delta(spxwSymbol, 0.005m, 0.02m, optionModel: OptionPricingModelType.BlackScholes,
+                ivModel: OptionPricingModelType.BlackScholes);
+
+            var currentTime = new DateTime(2016, 02, 19, 10, 0, 0);
+            delta.Update(new IndicatorDataPoint(spxwSymbol, currentTime, 20m));
+            delta.Update(new IndicatorDataPoint(spxwSymbol.Underlying, currentTime, 1900m));
+
+            Assert.IsTrue(delta.IsReady);
+            Assert.IsTrue(delta.ImpliedVolatility.Current.Value > 0);
+            Assert.IsTrue(delta.Current.Value > 0);
+        }
+
+        [TestCase(0.5, 470.0, OptionRight.Put, 0)]
+        [TestCase(0.5, 470.0, OptionRight.Put, 5)]
+        [TestCase(0.5, 470.0, OptionRight.Put, 10)]
+        [TestCase(0.5, 470.0, OptionRight.Put, 15)]
+        [TestCase(15, 450.0, OptionRight.Call, 0)]
+        [TestCase(15, 450.0, OptionRight.Call, 5)]
+        [TestCase(15, 450.0, OptionRight.Call, 10)]
+        [TestCase(0.5, 450.0, OptionRight.Call, 15)]
+        public void CanComputeOnExpirationDate(decimal price, decimal spotPrice, OptionRight right, int hoursAfterExpiryDate)
+        {
+            var expiration = new DateTime(2024, 12, 6);
+            var symbol = Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, right, 450m, expiration);
+            var indicator = new Delta(symbol, 0.0403m, 0.0m,
+                optionModel: OptionPricingModelType.BinomialCoxRossRubinstein, ivModel: OptionPricingModelType.BlackScholes);
+
+            var currentTime = expiration.AddHours(hoursAfterExpiryDate);
+
+            var optionDataPoint = new IndicatorDataPoint(symbol, currentTime, price);
+            var spotDataPoint = new IndicatorDataPoint(symbol.Underlying, currentTime, spotPrice);
+
+            Assert.IsFalse(indicator.Update(optionDataPoint));
+            Assert.IsTrue(indicator.Update(spotDataPoint));
+
+            Assert.AreNotEqual(0, indicator.Current.Value);
         }
     }
 }

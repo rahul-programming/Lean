@@ -76,7 +76,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public override long DataPoints => 471135;
+        public override long DataPoints => 15023;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -117,9 +117,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0"},
             {"Total Fees", "$13.00"},
             {"Estimated Strategy Capacity", "$1300000.00"},
-            {"Lowest Capacity Asset", "GOOCV 306CZK7GHYP9I|GOOCV VP83T1ZUHROL"},
+            {"Lowest Capacity Asset", "GOOCV 306CZK7GI2ZL2|GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "13.43%"},
-            {"OrderListHash", "fa96a26ab949ba2e053c2fa78930ad70"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "0d10d7319b27523377bb53bbd9702552"}
         };
     }
 }

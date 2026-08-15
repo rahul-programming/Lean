@@ -46,8 +46,8 @@ namespace QuantConnect.Algorithm.CSharp
         {
             if (_option == null)
             {
-                var option = OptionChainProvider.GetOptionContractList(_twx, Time)
-                    .OrderBy(symbol => symbol.ID.Symbol)
+                var option = OptionChain(_twx)
+                    .OrderBy(x => x.ID.Symbol)
                     .FirstOrDefault(optionContract => optionContract.ID.Date == _expiration
                                                       && optionContract.ID.OptionRight == OptionRight.Call
                                                       && optionContract.ID.OptionStyle == OptionStyle.American);
@@ -117,12 +117,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 37597;
+        public long DataPoints => 37598;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -135,32 +135,33 @@ namespace QuantConnect.Algorithm.CSharp
         public Dictionary<string, string> ExpectedStatistics => new Dictionary<string, string>
         {
             {"Total Orders", "3"},
-            {"Average Win", "2.73%"},
+            {"Average Win", "2.67%"},
             {"Average Loss", "-2.98%"},
-            {"Compounding Annual Return", "-4.619%"},
-            {"Drawdown", "0.300%"},
-            {"Expectancy", "-0.042"},
+            {"Compounding Annual Return", "-5.432%"},
+            {"Drawdown", "0.400%"},
+            {"Expectancy", "-0.052"},
             {"Start Equity", "100000"},
-            {"End Equity", "99668"},
-            {"Net Profit", "-0.332%"},
-            {"Sharpe Ratio", "-4.614"},
-            {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "0.427%"},
+            {"End Equity", "99608"},
+            {"Net Profit", "-0.392%"},
+            {"Sharpe Ratio", "-5.487"},
+            {"Sortino Ratio", "-2.607"},
+            {"Probabilistic Sharpe Ratio", "0.000%"},
             {"Loss Rate", "50%"},
             {"Win Rate", "50%"},
-            {"Profit-Loss Ratio", "0.92"},
-            {"Alpha", "-0.022"},
-            {"Beta", "-0.012"},
+            {"Profit-Loss Ratio", "0.90"},
+            {"Alpha", "-0.028"},
+            {"Beta", "-0.01"},
             {"Annual Standard Deviation", "0.005"},
             {"Annual Variance", "0"},
-            {"Information Ratio", "-2.823"},
+            {"Information Ratio", "-2.949"},
             {"Tracking Error", "0.049"},
-            {"Treynor Ratio", "2.01"},
+            {"Treynor Ratio", "3.063"},
             {"Total Fees", "$2.00"},
             {"Estimated Strategy Capacity", "$5700000.00"},
-            {"Lowest Capacity Asset", "AOL VRKS95ENLBYE|AOL R735QTJ8XC9X"},
-            {"Portfolio Turnover", "0.55%"},
-            {"OrderListHash", "24191a4a3bf11c07622a21266618193d"}
+            {"Lowest Capacity Asset", "AOL VRKS95ENPM9Y|AOL R735QTJ8XC9X"},
+            {"Portfolio Turnover", "0.54%"},
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "65d9c6a5991648c8c54a23423a51340d"}
         };
     }
 }

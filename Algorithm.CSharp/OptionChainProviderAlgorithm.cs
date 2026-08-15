@@ -100,7 +100,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -136,9 +136,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0"},
             {"Total Fees", "$2.00"},
             {"Estimated Strategy Capacity", "$6300000.00"},
-            {"Lowest Capacity Asset", "GOOCV W723A0UB7HTY|GOOCV VP83T1ZUHROL"},
+            {"Lowest Capacity Asset", "GOOCV W723A0UBBS5I|GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "76.04%"},
-            {"OrderListHash", "d7290944d7fee84f232b47d658010730"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "20963045be4abe2ce837a0261329462d"}
         };
     }
 }

@@ -66,10 +66,10 @@ namespace QuantConnect.Tests.Common.Securities
             var krakenSymbol = Symbol.Create("BTCCAD", SecurityType.Crypto, Market.Kraken);
             var krakenSymbolProperties = db.GetSymbolProperties(krakenSymbol.ID.Market, krakenSymbol, krakenSymbol.SecurityType, "CAD");
 
-            Assert.AreEqual(bitfinexSymbolProperties.MinimumOrderSize, 0.00006m);
+            Assert.AreEqual(bitfinexSymbolProperties.MinimumOrderSize, 0.00004m);
             Assert.AreEqual(binanceSymbolProperties.MinimumOrderSize, 5m); // in quote currency, MIN_NOTIONAL
             Assert.AreEqual(coinbaseSymbolProperties.MinimumOrderSize, 0.00000001m);
-            Assert.AreEqual(krakenSymbolProperties.MinimumOrderSize, 0.0001m);
+            Assert.AreEqual(krakenSymbolProperties.MinimumOrderSize, 0.00005m);
         }
 
         [TestCase("KE", Market.CBOT, 100)]
@@ -79,14 +79,9 @@ namespace QuantConnect.Tests.Common.Securities
         [TestCase("ZS", Market.CBOT, 100)]
         [TestCase("ZW", Market.CBOT, 100)]
 
-        [TestCase("CB", Market.CME, 100)]
-        [TestCase("DY", Market.CME, 100)]
         [TestCase("GF", Market.CME, 100)]
-        [TestCase("GNF", Market.CME, 100)]
         [TestCase("HE", Market.CME, 100)]
         [TestCase("LE", Market.CME, 100)]
-
-        [TestCase("CSC", Market.CME, 1)]
         public void LoadsPriceMagnifier(string ticker, string market, int expectedPriceMagnifier)
         {
             var db = SymbolPropertiesDatabase.FromDataFolder();
@@ -162,7 +157,7 @@ namespace QuantConnect.Tests.Common.Securities
             Assert.AreSame(properties, fetchedProperties);
 
             // Refresh the database
-            database.ReloadEntries();
+            database.UpdateDataFolderDatabase();
 
             // Fetch the custom entry again to make sure it was not overridden
             fetchedProperties = database.GetSymbolProperties(Market.USA, symbol, SecurityType.Base, "USD");
@@ -185,7 +180,7 @@ namespace QuantConnect.Tests.Common.Securities
             Globals.Reset();
 
             // Refresh the database
-            database.ReloadEntries();
+            database.UpdateDataFolderDatabase();
 
             // Get market again
             result = database.TryGetMarket("AU200AUD", SecurityType.Cfd, out market);
@@ -206,6 +201,7 @@ namespace QuantConnect.Tests.Common.Securities
         [TestCase(Market.ICE, SecurityType.Future)]
         [TestCase(Market.NYMEX, SecurityType.Future)]
         [TestCase(Market.SGX, SecurityType.Future)]
+        [TestCase(Market.HKFE, SecurityType.Future)]
         public void GetSymbolPropertiesListIsNotEmpty(string market, SecurityType securityType)
         {
             var db = SymbolPropertiesDatabase.FromDataFolder();
@@ -540,6 +536,22 @@ namespace QuantConnect.Tests.Common.Securities
 
             Assert.IsNull(result.MinimumOrderSize);
             Assert.AreEqual(1, result.PriceMagnifier);
+        }
+
+        [Test]
+        public void LoadsCBOEIndexSymbolProperties()
+        {
+            var db = SymbolPropertiesDatabase.FromDataFolder();
+
+            var entries = db.GetSymbolPropertiesList(Market.CBOE, SecurityType.Index).ToList();
+
+            Assert.IsNotEmpty(entries);
+            var wildcardEntry = entries.FirstOrDefault(e => e.Key.Symbol == SecurityDatabaseKey.Wildcard);
+            Assert.IsNotNull(wildcardEntry.Value);
+            Assert.AreEqual("USD", wildcardEntry.Value.QuoteCurrency);
+            Assert.AreEqual(1m, wildcardEntry.Value.ContractMultiplier);
+            Assert.AreEqual(0.01m, wildcardEntry.Value.MinimumPriceVariation);
+            Assert.AreEqual(1m, wildcardEntry.Value.LotSize);
         }
 
         private class TestingSymbolPropertiesDatabase : SymbolPropertiesDatabase

@@ -47,7 +47,7 @@ namespace QuantConnect.Algorithm.CSharp
             SetCash(500000);
 
             var option = AddOption("GOOG", Resolution.Minute);
-            option.SetFilter(universe => universe.Strikes(-1, 1).Expiration(0, 62));
+            option.SetFilter(universe => universe.StandardsOnly().Strikes(-1, 1).Expiration(0, 62));
 
             _symbol = option.Symbol;
         }
@@ -137,7 +137,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 464263;
+        public long DataPoints => 8151;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -178,9 +178,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0"},
             {"Total Fees", "$3.00"},
             {"Estimated Strategy Capacity", "$190000.00"},
-            {"Lowest Capacity Asset", "GOOCV 306CZK4DP0LC6|GOOCV VP83T1ZUHROL"},
+            {"Lowest Capacity Asset", "GOOCV 306CZK4DP4VNQ|GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "1.19%"},
-            {"OrderListHash", "007124f0e2e4f0048f367782ef7fcd02"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "860bacced1208f152cfc0aad369a111e"}
         };
     }
 }

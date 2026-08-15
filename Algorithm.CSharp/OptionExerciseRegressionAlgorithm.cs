@@ -44,11 +44,11 @@ namespace QuantConnect.Algorithm.CSharp
             var option = AddOption("AAPL", Resolution.Minute);
             _option = option.Symbol;
 
-            option.SetFilter(universe => from symbol in universe
+            option.SetFilter(universe => from contract in universe
                                 .WeeklysOnly()
                                 .Strikes(-5, +5)
                                 .Expiration(TimeSpan.Zero, TimeSpan.FromDays(29))
-                                         select symbol);
+                                         select contract.Symbol);
         }
 
         public override void OnOrderEvent(OrderEvent orderEvent)
@@ -113,7 +113,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 1864376;
+        public long DataPoints => 105730;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -133,7 +133,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "3"},
             {"Average Win", "2.13%"},
             {"Average Loss", "-2.21%"},
-            {"Compounding Annual Return", "-12.347%"},
+            {"Compounding Annual Return", "-11.379%"},
             {"Drawdown", "0.100%"},
             {"Expectancy", "-0.019"},
             {"Start Equity", "1000000"},
@@ -154,9 +154,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0"},
             {"Total Fees", "$23.00"},
             {"Estimated Strategy Capacity", "$420000.00"},
-            {"Lowest Capacity Asset", "AAPL 2ZQA0P58YFYIU|AAPL R735QTJ8XC9X"},
+            {"Lowest Capacity Asset", "AAPL 2ZQA0P58YK8UE|AAPL R735QTJ8XC9X"},
             {"Portfolio Turnover", "66.12%"},
-            {"OrderListHash", "e448ec4e631d4215a2cae661e3a219ed"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "8e667d067b15819e8626d2157ce7b0b5"}
         };
     }
 }

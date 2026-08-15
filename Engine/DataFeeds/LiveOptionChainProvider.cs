@@ -69,16 +69,6 @@ namespace QuantConnect.Lean.Engine.DataFeeds
         }
 
         /// <summary>
-        /// Creates a new instance
-        /// </summary>
-        /// <param name="dataCacheProvider">The data cache provider instance to use</param>
-        /// <param name="mapFileProvider">The map file provider instance to use</param>
-        public LiveOptionChainProvider(IDataCacheProvider dataCacheProvider, IMapFileProvider mapFileProvider)
-            : base(dataCacheProvider, mapFileProvider)
-        {
-        }
-
-        /// <summary>
         /// Gets the option chain associated with the underlying Symbol
         /// </summary>
         /// <param name="symbol">The option or the underlying symbol to get the option chain for.
@@ -200,8 +190,7 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                     }
 
                     // Gather the month code and the year's last number to query the next API, which expects an expiration as `<MONTH_CODE><YEAR_LAST_NUMBER>`
-                    var canonicalFuture = Symbol.Create(futureContractSymbol.ID.Symbol, SecurityType.Future, futureContractSymbol.ID.Market);
-                    var expiryFunction = FuturesExpiryFunctions.FuturesExpiryFunction(canonicalFuture);
+                    var expiryFunction = FuturesExpiryFunctions.FuturesExpiryFunction(futureContractSymbol.Canonical);
 
                     var futureContractExpiration = selectedOption.Expirations
                         .Select(x => new KeyValuePair<CMEOptionsExpiration, DateTime>(x, expiryFunction(new DateTime(x.Expiration.Year, x.Expiration.Month, 1))))

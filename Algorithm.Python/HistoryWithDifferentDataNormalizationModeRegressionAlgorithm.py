@@ -16,7 +16,7 @@ from AlgorithmImports import *
 ### <summary>
 ### Regression algorithm illustrating how to request history data for different data normalization modes.
 ### </summary>
-class HistoryWithDifferentDataMappingModeRegressionAlgorithm(QCAlgorithm):
+class HistoryWithDifferentDataNormalizationModeRegressionAlgorithm(QCAlgorithm):
 
     def initialize(self):
         self.set_start_date(2013, 10, 7)
@@ -48,10 +48,10 @@ class HistoryWithDifferentDataMappingModeRegressionAlgorithm(QCAlgorithm):
         history_results = [x.loc[symbol].close for x in history_results]
 
         if any(x.size == 0 or x.size != history_results[0].size for x in history_results):
-            raise Exception(f"History results for {symbol} have different number of bars")
+            raise AssertionError(f"History results for {symbol} have different number of bars")
 
         # Check that, for each history result, close prices at each time are different for these securities (AAPL and ES)
         for j in range(history_results[0].size):
             close_prices = set(history_results[i][j] for i in range(len(history_results)))
             if len(close_prices) != len(data_normalization_modes):
-                raise Exception(f"History results for {symbol} have different close prices at the same time")
+                raise AssertionError(f"History results for {symbol} have different close prices at the same time")

@@ -50,7 +50,7 @@ namespace QuantConnect.Algorithm.CSharp
             _spx = AddIndex("SPX", Resolution.Minute).Symbol;
 
             // Select a index option expiring ITM, and adds it to the algorithm.
-            _spxOption = AddIndexOptionContract(OptionChainProvider.GetOptionContractList(_spx, Time)
+            _spxOption = AddIndexOptionContract(OptionChain(_spx)
                 .Where(x => x.ID.StrikePrice <= 3200m && x.ID.OptionRight == OptionRight.Put && x.ID.Date.Year == 2021 && x.ID.Date.Month == 1)
                 .OrderByDescending(x => x.ID.StrikePrice)
                 .Take(1)
@@ -162,12 +162,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 19984;
+        public long DataPoints => 19985;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -183,29 +183,30 @@ namespace QuantConnect.Algorithm.CSharp
             {"Average Win", "0.34%"},
             {"Average Loss", "0%"},
             {"Compounding Annual Return", "4.943%"},
-            {"Drawdown", "0.000%"},
+            {"Drawdown", "0%"},
             {"Expectancy", "0"},
             {"Start Equity", "100000"},
             {"End Equity", "100340"},
             {"Net Profit", "0.340%"},
-            {"Sharpe Ratio", "2.906"},
+            {"Sharpe Ratio", "3.044"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "89.631%"},
+            {"Probabilistic Sharpe Ratio", "88.053%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
             {"Alpha", "0.033"},
-            {"Beta", "-0.008"},
+            {"Beta", "-0.007"},
             {"Annual Standard Deviation", "0.011"},
             {"Annual Variance", "0"},
             {"Information Ratio", "-0.073"},
             {"Tracking Error", "0.139"},
-            {"Treynor Ratio", "-4.22"},
+            {"Treynor Ratio", "-4.753"},
             {"Total Fees", "$0.00"},
             {"Estimated Strategy Capacity", "$0"},
-            {"Lowest Capacity Asset", "SPX 31KC0UJFONTBI|SPX 31"},
+            {"Lowest Capacity Asset", "SPX 31KC0UJFOS3N2|SPX 31"},
             {"Portfolio Turnover", "0.01%"},
-            {"OrderListHash", "a84fccbda439e0f88201488eff464f74"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "6c95f8f5c85c35810f776d2b47a6b342"}
         };
     }
 }

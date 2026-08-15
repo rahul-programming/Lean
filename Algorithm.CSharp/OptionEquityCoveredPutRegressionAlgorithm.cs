@@ -78,7 +78,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public override long DataPoints => 471135;
+        public override long DataPoints => 15023;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -121,7 +121,8 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$550000.00"},
             {"Lowest Capacity Asset", "GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "399.81%"},
-            {"OrderListHash", "326721b5b46d1094a5a758c60ba67da0"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "89db7ece35155c62319cbbb810d9a58e"}
         };
     }
 }

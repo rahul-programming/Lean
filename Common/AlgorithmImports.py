@@ -19,6 +19,7 @@ import sys
 # current working directory. We therefore construct the absolute path to the
 # start.py file, and find the runtimeconfig.json relative to that.
 path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(path)
 
 from clr import AddReference
 AddReference("System")
@@ -39,6 +40,7 @@ from QuantConnect.Orders import *
 from QuantConnect.Python import *
 from QuantConnect.Storage import *
 from QuantConnect.Research import *
+from QuantConnect.Commands import *
 from QuantConnect.Algorithm import *
 from QuantConnect.Statistics import *
 from QuantConnect.Parameters import *
@@ -74,12 +76,14 @@ from QuantConnect.Orders.OptionExercise import *
 from QuantConnect.Securities.Volatility import *
 from QuantConnect.Securities.Interfaces import *
 from QuantConnect.Data.UniverseSelection import *
+from QuantConnect.Securities.IndexOption import  *
 from QuantConnect.Data.Custom.IconicTypes import *
 from QuantConnect.Securities.CryptoFuture import *
 from QuantConnect.Algorithm.Framework.Risk import *
 from QuantConnect.Algorithm.Framework.Alphas import *
 from QuantConnect.Algorithm.Framework.Execution import *
 from QuantConnect.Algorithm.Framework.Portfolio import *
+from QuantConnect.Indicators.CandlestickPatterns import *
 from QuantConnect.Algorithm.Framework.Portfolio.SignalExports import *
 from QuantConnect.Algorithm.Framework.Selection import *
 
@@ -94,6 +98,11 @@ from datetime import date, time, datetime, timedelta
 from typing import *
 import math
 import json
+
+# "from System import *" shadows Python's builtin Exception with System.Exception, whose
+# except clauses do not catch Python exceptions (TypeError, KeyError, ...).
+# Restore the builtin; "import System" gives explicit access to the CLR type if needed.
+from builtins import Exception
 
 QCAlgorithmFramework = QCAlgorithm
 QCAlgorithmFrameworkBridge = QCAlgorithm

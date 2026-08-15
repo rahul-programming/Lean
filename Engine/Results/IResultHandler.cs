@@ -21,7 +21,6 @@ using System.ComponentModel.Composition;
 using QuantConnect.Brokerages;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Interfaces;
-using QuantConnect.Lean.Engine.TransactionHandlers;
 using QuantConnect.Orders;
 using QuantConnect.Packets;
 using QuantConnect.Statistics;
@@ -57,6 +56,12 @@ namespace QuantConnect.Lean.Engine.Results
         /// Event fired each time that we add/remove securities from the data feed
         /// </summary>
         void OnSecuritiesChanged(SecurityChanges changes);
+
+        /// <summary>
+        /// Event fired when the algorithm's warm-up period finishes, right before the algorithm's
+        /// <see cref="IAlgorithm.OnWarmupFinished"/> callback is triggered
+        /// </summary>
+        void OnWarmupFinished();
 
         /// <summary>
         /// Initialize the result handler with this result packet.

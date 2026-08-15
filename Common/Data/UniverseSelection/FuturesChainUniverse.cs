@@ -17,9 +17,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using QuantConnect.Interfaces;
 using QuantConnect.Securities;
 using QuantConnect.Securities.Future;
+using QuantConnect.Util;
 
 namespace QuantConnect.Data.UniverseSelection
 {
@@ -28,8 +28,6 @@ namespace QuantConnect.Data.UniverseSelection
     /// </summary>
     public class FuturesChainUniverse : Universe
     {
-        private DateTime _cacheDate;
-
         /// <summary>
         /// True if this universe filter can run async in the data stack
         /// </summary>
@@ -86,38 +84,11 @@ namespace QuantConnect.Data.UniverseSelection
         /// <returns>The data that passes the filter</returns>
         public override IEnumerable<Symbol> SelectSymbols(DateTime utcTime, BaseDataCollection data)
         {
-            // date change detection needs to be done in exchange time zone
             var localEndTime = utcTime.ConvertFromUtc(Future.Exchange.TimeZone);
-            var exchangeDate = localEndTime.Date;
-            if (_cacheDate == exchangeDate)
-            {
-                return Unchanged;
-            }
-
-            var availableContracts = data.Data.Select(x => x.Symbol);
+            var availableContracts = new CastingEnumerable<BaseData, FutureUniverse>(data.Data);
             var results = Future.ContractFilter.Filter(new FutureFilterUniverse(availableContracts, localEndTime));
-            _cacheDate = exchangeDate;
 
-            return results;
-        }
-
-        /// <summary>
-        /// Gets the subscription requests to be added for the specified security
-        /// </summary>
-        /// <param name="security">The security to get subscriptions for</param>
-        /// <param name="currentTimeUtc">The current time in utc. This is the frontier time of the algorithm</param>
-        /// <param name="maximumEndTimeUtc">The max end time</param>
-        /// <param name="subscriptionService">Instance which implements <see cref="ISubscriptionDataConfigService"/> interface</param>
-        /// <returns>All subscriptions required by this security</returns>
-        public override IEnumerable<SubscriptionRequest> GetSubscriptionRequests(Security security, DateTime currentTimeUtc, DateTime maximumEndTimeUtc,
-            ISubscriptionDataConfigService subscriptionService)
-        {
-            if (Future.Symbol.Underlying == security.Symbol)
-            {
-                Future.Underlying = security;
-            }
-
-            return base.GetSubscriptionRequests(security, currentTimeUtc, maximumEndTimeUtc, subscriptionService);
+            return results.Select(x => x.Symbol);
         }
     }
 }

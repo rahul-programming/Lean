@@ -90,6 +90,12 @@ namespace QuantConnect.Algorithm.CSharp
                             }
                         }
                     }
+
+                    // We should be able to access the open interest of the contract
+                    if (chain.Value.All(contract => contract.OpenInterest == 0))
+                    {
+                        throw new RegressionTestException("Regression test failed: open interest is zero for all contracts");
+                    }
                 }
             }
         }
@@ -117,12 +123,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 399332;
+        public long DataPoints => 256364;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 146806;
+        public int AlgorithmHistoryDataPoints => 77028;
 
         /// <summary>
         /// Final status of the algorithm
@@ -158,9 +164,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0"},
             {"Total Fees", "$2.00"},
             {"Estimated Strategy Capacity", "$0"},
-            {"Lowest Capacity Asset", "AOL W78ZERDZK1QE|AOL R735QTJ8XC9X"},
+            {"Lowest Capacity Asset", "AOL W78ZERDZOC1Y|AOL R735QTJ8XC9X"},
             {"Portfolio Turnover", "0.07%"},
-            {"OrderListHash", "58c3e82532109b692429e1eb062296b5"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "020bab5fcb635e1378f404364e9495a2"}
         };
     }
 }

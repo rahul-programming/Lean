@@ -14,7 +14,6 @@
  *
 */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using QuantConnect.Data;
@@ -100,7 +99,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 1252633;
+        public long DataPoints => 12290;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -120,30 +119,31 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "2"},
             {"Average Win", "0%"},
             {"Average Loss", "-0.40%"},
-            {"Compounding Annual Return", "-21.622%"},
-            {"Drawdown", "0.300%"},
+            {"Compounding Annual Return", "122.246%"},
+            {"Drawdown", "0.800%"},
             {"Expectancy", "-1"},
             {"Start Equity", "100000"},
-            {"End Equity", "99689"},
-            {"Net Profit", "-0.311%"},
-            {"Sharpe Ratio", "0"},
+            {"End Equity", "101100"},
+            {"Net Profit", "1.100%"},
+            {"Sharpe Ratio", "12.688"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "0%"},
+            {"Probabilistic Sharpe Ratio", "95.488%"},
             {"Loss Rate", "100%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
             {"Alpha", "0"},
             {"Beta", "0"},
-            {"Annual Standard Deviation", "0"},
-            {"Annual Variance", "0"},
-            {"Information Ratio", "0"},
-            {"Tracking Error", "0"},
+            {"Annual Standard Deviation", "0.112"},
+            {"Annual Variance", "0.013"},
+            {"Information Ratio", "12.777"},
+            {"Tracking Error", "0.112"},
             {"Treynor Ratio", "0"},
             {"Total Fees", "$1.00"},
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", "GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "15.08%"},
-            {"OrderListHash", "db6a1134ad325bce31c2bdd2e87ff5f4"}
+            {"Drawdown Recovery", "4"},
+            {"OrderListHash", "c53bc9318676161ed3b7797c945e2113"}
         };
     }
 }

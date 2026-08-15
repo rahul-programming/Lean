@@ -38,7 +38,7 @@ class IndexOptionBuySellCallIntradayRegressionAlgorithm(QCAlgorithm):
         # Select a index option expiring ITM, and adds it to the algorithm.
         spx_options = list(sorted([
             self.add_index_option_contract(i, Resolution.MINUTE).symbol \
-                for i in self.option_chain_provider.get_option_contract_list(spx, self.time)\
+                for i in self.option_chain(spx)\
                     if (i.id.strike_price == 3700 or i.id.strike_price == 3800) and i.id.option_right == OptionRight.CALL and i.id.date.year == 2021 and i.id.date.month == 1],
             key=lambda x: x.id.strike_price
         ))
@@ -62,13 +62,13 @@ class IndexOptionBuySellCallIntradayRegressionAlgorithm(QCAlgorithm):
         )
 
         if len(spx_options) != 2:
-            raise Exception(f"Expected 2 index options symbols from chain provider, found {spx_options.count}")
+            raise AssertionError(f"Expected 2 index options symbols from chain provider, found {spx_options.count}")
 
         if spx_options[0] != expectedContract3700:
-            raise Exception(f"Contract {expectedContract3700} was not found in the chain, found instead: {spx_options[0]}")
-        
+            raise AssertionError(f"Contract {expectedContract3700} was not found in the chain, found instead: {spx_options[0]}")
+
         if spx_options[1] != expectedContract3800:
-            raise Exception(f"Contract {expectedContract3800} was not found in the chain, found instead: {spx_options[1]}")
+            raise AssertionError(f"Contract {expectedContract3800} was not found in the chain, found instead: {spx_options[1]}")
 
         self.schedule.on(self.date_rules.tomorrow, self.time_rules.after_market_open(spx, 1), lambda: self.after_market_open_trade(spx_options))
         self.schedule.on(self.date_rules.tomorrow, self.time_rules.noon, lambda: self.liquidate())
@@ -83,4 +83,4 @@ class IndexOptionBuySellCallIntradayRegressionAlgorithm(QCAlgorithm):
     ### <exception cref="Exception">The algorithm has holdings</exception>
     def on_end_of_algorithm(self):
         if self.portfolio.invested:
-            raise Exception(f"Expected no holdings at end of algorithm, but are invested in: {', '.join(self.portfolio.keys())}")
+            raise AssertionError(f"Expected no holdings at end of algorithm, but are invested in: {', '.join(self.portfolio.keys())}")

@@ -14,7 +14,7 @@
 */
 
 using System.Runtime.CompilerServices;
-
+using QuantConnect.Algorithm.Framework.Alphas;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities.Positions;
 
@@ -39,8 +39,8 @@ namespace QuantConnect
             public static string InvalidTargetPercent(IAlgorithm algorithm, decimal percent)
             {
                 return Invariant($@"The portfolio target percent: {
-                    percent}, does not comply with the current 'Algorithm.Settings' 'MaxAbsolutePortfolioTargetPercentage': {
-                    algorithm.Settings.MaxAbsolutePortfolioTargetPercentage} or 'MinAbsolutePortfolioTargetPercentage': {
+                    percent}, does not comply with the current '{FormatCodeRoot("Settings")}.{FormatCode("MaxAbsolutePortfolioTargetPercentage")}': {
+                    algorithm.Settings.MaxAbsolutePortfolioTargetPercentage} or '{FormatCodeRoot("Settings")}.{FormatCode("MinAbsolutePortfolioTargetPercentage")}': {
                     algorithm.Settings.MinAbsolutePortfolioTargetPercentage}. Skipping");
             }
 
@@ -76,6 +76,15 @@ namespace QuantConnect
                 }
 
                 return str;
+            }
+
+            /// <summary>
+            /// Returns a string message saying the insight direction is invalid for the given symbol
+            /// </summary>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string InvalidInsightDirection(QuantConnect.Symbol symbol, InsightDirection insightDirection)
+            {
+                return Invariant($"Invalid insight direction {insightDirection} for symbol: {symbol}.");
             }
         }
     }

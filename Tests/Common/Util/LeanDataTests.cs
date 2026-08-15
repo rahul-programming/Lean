@@ -46,14 +46,49 @@ namespace QuantConnect.Tests.Common.Util
             SymbolCache.Clear();
         }
 
-        [TestCase(16, false, "20240506 09:30", "06:30")]
-        [TestCase(10, false, "20240506 09:30", "06:30")]
-        [TestCase(10, true, "20240506 04:00", "16:00")]
-        [TestCase(5, true, "20240506 04:00", "16:00")]
-        [TestCase(19, true, "20240506 04:00", "16:00")]
-        public void DailyCalendarInfo(int hours, bool extendedMarketHours, string startTime, string timeSpan)
+        [TestCase("0.00:04:00", "0.09:30:00", "20251013 09:29:01", "20251013 09:26:00")]
+        [TestCase("0.00:04:00", "0.09:30:00", "20251013 09:30:01", "20251013 09:30:00")]
+        [TestCase("0.00:04:00", "0.09:30:00", "20251013 09:35:00", "20251013 09:34:00")]
+        [TestCase("0.00:05:00", "0.09:00:00", "20251013 09:35:00", "20251013 09:35:00")]
+
+        [TestCase("0.02:00:00", "0.09:30:00", "20251013 11:30:01", "20251013 11:30:00")]
+        [TestCase("0.02:00:00", "0.09:30:00", "20251013 09:30:01", "20251013 09:30:00")]
+        [TestCase("0.02:00:00", "0.09:30:00", "20251013 08:30:01", "20251013 07:30:00")]
+
+        [TestCase("10.00:00:00", "0.00:00:00", "20251013 11:30:01", "20251011 00:00:00")]
+        [TestCase("10.00:00:00", "0.00:00:00", "20251007 11:30:01", "20251001 00:00:00")]
+        public void ConsolidatorStarTime(string periodStr, string startTimeStr, string timeStr, string expected)
         {
-            var symbol = Symbols.SPY;
+            var result = LeanData.GetConsolidatorStartTime(
+                TimeSpan.ParseExact(periodStr, "d\\.hh\\:mm\\:ss", CultureInfo.InvariantCulture),
+                TimeSpan.ParseExact(startTimeStr, "d\\.hh\\:mm\\:ss", CultureInfo.InvariantCulture),
+                DateTime.ParseExact(timeStr, "yyyyMMdd HH\\:mm\\:ss", CultureInfo.InvariantCulture));
+
+            Assert.AreEqual(DateTime.ParseExact(expected, "yyyyMMdd HH\\:mm\\:ss", CultureInfo.InvariantCulture), result);
+        }
+
+        [TestCase(16, false, "20240506 09:30", "06:30", false)]
+        [TestCase(10, false, "20240506 09:30", "06:30", false)]
+        [TestCase(10, true, "20240506 04:00", "16:00", false)]
+        [TestCase(5, true, "20240506 04:00", "16:00", false)]
+        [TestCase(19, true, "20240506 04:00", "16:00", false)]
+
+        [TestCase(16, false, "20240506 09:15", "07:15", true)]
+        [TestCase(10, false, "20240506 09:15", "07:15", true)]
+        [TestCase(10, true, "20240506 08:45", "15:15", true)]
+        [TestCase(9, true, "20240506 08:45", "15:15", true)]
+        [TestCase(19, true, "20240506 08:45", "15:15", true)]
+        public void DailyCalendarInfo(int hours, bool extendedMarketHours, string startTime, string timeSpan, bool multipleMarketClosureSymbol)
+        {
+            Symbol symbol;
+            if (multipleMarketClosureSymbol)
+            {
+                symbol = Symbols.CreateFutureSymbol("HSI", new DateTime(2025, 01, 27));
+            }
+            else
+            {
+                symbol = Symbols.SPY;
+            }
             var targetTime = new DateTime(2024, 5, 6).AddHours(hours);
             var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.ID.SecurityType);
             var result = LeanData.GetDailyCalendar(targetTime, exchangeHours, extendedMarketHours);
@@ -64,16 +99,46 @@ namespace QuantConnect.Tests.Common.Util
             Assert.AreEqual(expected, result);
         }
 
-        [TestCase(1, "20240506 16:00")] // market closed
-        [TestCase(5, "20240506 16:00")] // pre market
-        [TestCase(10, "20240506 16:00")] // market hours
-        [TestCase(16, "20240507 16:00")] // at the close
-        [TestCase(18, "20240507 16:00")] // post market hours
-        [TestCase(20, "20240507 16:00")] // market closed
-        [TestCase(24 * 5, "20240513 16:00")] // saturday
-        public void GetNextDailyEndTime(int hours, string expectedTime)
+        [TestCase(true, "20131219 00:00", "1.00:00")]
+        [TestCase(false, "20131219 09:30", "07:30")]
+        public void DailyCalendarInfoFuture(bool extendedMarketHours, string startTime, string timeSpan)
         {
-            var symbol = Symbols.SPY;
+            var symbol = Symbols.Future_ESZ18_Dec2018;
+            var targetTime = new DateTime(2013, 12, 19, 18, 0, 0);
+            var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.ID.SecurityType);
+            var result = LeanData.GetDailyCalendar(targetTime, exchangeHours, extendedMarketHours);
+
+            var expected = new CalendarInfo(DateTime.ParseExact(startTime, DateFormat.TwelveCharacter, CultureInfo.InvariantCulture),
+                TimeSpan.Parse(timeSpan, CultureInfo.InvariantCulture));
+
+            Assert.AreEqual(expected, result);
+        }
+
+        [TestCase(1, "20240506 16:00", false)] // market closed
+        [TestCase(5, "20240506 16:00", false)] // pre market
+        [TestCase(10, "20240506 16:00", false)] // market hours
+        [TestCase(16, "20240507 16:00", false)] // at the close
+        [TestCase(18, "20240507 16:00", false)] // post market hours
+        [TestCase(20, "20240507 16:00", false)] // market closed
+
+        [TestCase(1, "20240506 16:30", true)] // market closed
+        [TestCase(9, "20240506 16:30", true)] // pre market
+        [TestCase(10, "20240506 16:30", true)] // market hours
+        [TestCase(12, "20240506 16:30", true)] // pre market
+        [TestCase(14, "20240506 16:30", true)] // market hours
+        [TestCase(18, "20240507 16:30", true)] // post market hours
+        [TestCase(20, "20240507 16:30", true)] // post market hours
+        public void GetNextDailyEndTime(int hours, string expectedTime, bool multipleMarketClosureSymbol)
+        {
+            Symbol symbol;
+            if (multipleMarketClosureSymbol)
+            {
+                symbol = Symbols.CreateFutureSymbol("HSI", new DateTime(2025, 01, 27));
+            }
+            else
+            {
+                symbol = Symbols.SPY;
+            }
             var targetTime = new DateTime(2024, 5, 6).AddHours(hours);
             var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.ID.SecurityType);
             var result = LeanData.GetNextDailyEndTime(symbol, targetTime, exchangeHours);
@@ -192,7 +257,7 @@ namespace QuantConnect.Tests.Common.Util
             var factory = (BaseData)Activator.CreateInstance(parameters.BaseDataType);
             var source = factory.GetSource(parameters.Config, parameters.Date, false);
             var expected = parameters.ExpectedZipFilePath;
-            if (parameters.SecurityType == SecurityType.Option || parameters.SecurityType == SecurityType.Future)
+            if (parameters.SecurityType is SecurityType.Option or SecurityType.Future or SecurityType.FutureOption)
             {
                 expected += "#" + parameters.ExpectedZipEntryName;
             }
@@ -256,19 +321,32 @@ namespace QuantConnect.Tests.Common.Util
             Assert.AreEqual(market, parsedMarket);
         }
 
-        [Test]
-        public void UniversesDataPath()
+        [TestCase("Data/equity/usa/universes/etf/spy/20200102.csv", SecurityType.Base, Market.USA, Resolution.Daily, "SPY.ETFConstituentUniverse", "2020/1/2", true)]
+        [TestCase("Data/equity/usa/universes/daily/qctest/20131007.csv", SecurityType.Base, Market.USA, Resolution.Daily, "qctest", "2013/10/07", false)]
+        [TestCase("Data/option/usa/universes/aapl/20241112.csv", SecurityType.Option, Market.USA, Resolution.Daily, "AAPL", "2024/11/12", false)]
+        [TestCase("Data/indexoption/usa/universes/spx/20250110.csv", SecurityType.IndexOption, Market.USA, Resolution.Daily, "SPX", "2025/1/10", false)]
+        [TestCase("Data/future/cme/universes/es/20111230.csv", SecurityType.Future, Market.CME, Resolution.Daily, "ES", "2011/12/30", false)]
+        [TestCase("Data/futureoption/cme/universes/es/202003/20111230.csv", SecurityType.FutureOption, Market.CME, Resolution.Daily, "ES", "2011/12/30", false)]
+        public void UniversesDataPath(string path, SecurityType expectedSecurityType, string expectedMarket, Resolution expectedResolution, string expectedIDSymbol, DateTime expectedDate, bool isCustomDataType)
         {
-            var path = "equity/usa/universes/etf/spy/20200102.csv";
             Assert.IsTrue(LeanData.TryParsePath(path, out var symbol, out var date, out var resolution));
 
-            Assert.AreEqual(SecurityType.Base, symbol.SecurityType);
-            Assert.AreEqual(Market.USA, symbol.ID.Market);
-            Assert.AreEqual(Resolution.Daily, resolution);
-            Assert.AreEqual("SPY.ETFConstituentUniverse", symbol.ID.Symbol);
-            Assert.AreEqual(new DateTime(2020, 1, 2), date);
-            Assert.IsTrue(SecurityIdentifier.TryGetCustomDataType(symbol.ID.Symbol, out var dataType));
-            Assert.AreEqual(typeof(ETFConstituentUniverse).Name, dataType);
+            Assert.AreEqual(expectedSecurityType, symbol.SecurityType);
+            Assert.AreEqual(expectedMarket, symbol.ID.Market);
+            Assert.AreEqual(expectedResolution, resolution);
+            Assert.AreEqual(expectedIDSymbol, symbol.ID.Symbol);
+            Assert.AreEqual(expectedDate, date);
+
+            var hasCustomDataType = SecurityIdentifier.TryGetCustomDataType(symbol.ID.Symbol, out var dataType);
+            if (isCustomDataType)
+            {
+                Assert.IsTrue(hasCustomDataType);
+                Assert.AreEqual(typeof(ETFConstituentUniverse).Name, dataType);
+            }
+            else
+            {
+                Assert.IsFalse(hasCustomDataType);
+            }
         }
 
         [Test]
@@ -522,7 +600,7 @@ namespace QuantConnect.Tests.Common.Util
                 .Replace(Path.DirectorySeparatorChar, '/');
             var optionEntryFilePath = LeanData.GenerateZipEntryName(optionSymbol, new DateTime(2020, 9, 22), Resolution.Minute, TickType.Quote);
 
-            Assert.AreEqual($"../../../Data/futureoption/cme/minute/{expectedFutureOptionTicker.ToLowerInvariant()}/{underlying.ID.Date:yyyyMMdd}/20200922_quote_american.zip", optionZipFilePath);
+            Assert.AreEqual($"../../../Data/futureoption/cme/minute/{expectedFutureOptionTicker.ToLowerInvariant()}/{underlying.ID.Date:yyyyMM}/20200922_quote_american.zip", optionZipFilePath);
             Assert.AreEqual($"20200922_{expectedFutureOptionTicker.ToLowerInvariant()}_minute_quote_american_put_42000000_{optionSymbol.ID.Date:yyyyMMdd}.csv", optionEntryFilePath);
         }
 
@@ -546,7 +624,7 @@ namespace QuantConnect.Tests.Common.Util
                 .Replace(Path.DirectorySeparatorChar, '/');
             var optionEntryFilePath = LeanData.GenerateZipEntryName(optionSymbol, new DateTime(2020, 1, 5), Resolution.Minute, TickType.Quote);
 
-            Assert.AreEqual("../../../Data/futureoption/comex/minute/og/20200428/20200105_quote_american.zip", optionZipFilePath);
+            Assert.AreEqual("../../../Data/futureoption/comex/minute/og/202004/20200105_quote_american.zip", optionZipFilePath);
             Assert.AreEqual($"20200105_og_minute_quote_american_{right.ToLower()}_{strike}0000_{expiry:yyyyMMdd}.csv", optionEntryFilePath);
         }
 
@@ -740,6 +818,10 @@ namespace QuantConnect.Tests.Common.Util
                 new LeanDataTestParameters(Symbols.SPY_P_192_Feb19_2016, date, Resolution.Hour, TickType.Quote, "spy_2016_quote_american.zip", "spy_quote_american_put_1920000_20160219.csv", "option/usa/hour"),
                 new LeanDataTestParameters(Symbols.SPY_P_192_Feb19_2016, date, Resolution.Daily, TickType.Trade, "spy_2016_trade_american.zip", "spy_trade_american_put_1920000_20160219.csv", "option/usa/daily"),
                 new LeanDataTestParameters(Symbols.SPY_P_192_Feb19_2016, date, Resolution.Daily, TickType.Quote, "spy_2016_quote_american.zip", "spy_quote_american_put_1920000_20160219.csv", "option/usa/daily"),
+                
+                // future option
+                new LeanDataTestParameters(Symbol.CreateOption(Symbol.CreateFuture(Futures.Grains.SoybeanOil, Market.CBOT, new(2025, 12, 12)), Market.CBOT, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 0.45m, new(2025, 10, 24)), date, Resolution.Minute, TickType.Trade, "20160217_trade_american.zip", "20160217_ozl_minute_trade_american_call_4500_20251024.csv", "futureoption/cbot/minute/ozl/202512"),
+                new LeanDataTestParameters(Symbol.CreateOption(Symbol.CreateFuture(Futures.Currencies.JPY, Market.CME, new(2025, 12, 15)), Market.CME, SecurityType.FutureOption.DefaultOptionStyle(), OptionRight.Call, 0.006475m, new(2025, 12, 05)), date, Resolution.Minute, TickType.Quote, "20160217_quote_american.zip", "20160217_jpu_minute_quote_american_call_64.75_20251205.csv", "futureoption/cme/minute/jpu/202512"),
 
                 // forex
                 new LeanDataTestParameters(Symbols.EURUSD, date, Resolution.Tick, TickType.Quote, "20160217_quote.zip", "20160217_eurusd_tick_quote.csv", "forex/oanda/tick/eurusd"),
@@ -770,46 +852,46 @@ namespace QuantConnect.Tests.Common.Util
                 new LeanDataTestParameters(Symbols.BTCUSD, date, Resolution.Daily, TickType.Quote, "btcusd_quote.zip", "btcusd.csv", "crypto/coinbase/daily"),
 
                 // Futures (expiration month == contract month) - trades
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Tick, TickType.Trade, "20181210_trade.zip", "20181210_es_tick_trade_201812_20181221.csv", "future/cme/tick/es"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Second, TickType.Trade, "20181210_trade.zip", "20181210_es_second_trade_201812_20181221.csv", "future/cme/second/es"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Minute, TickType.Trade, "20181210_trade.zip", "20181210_es_minute_trade_201812_20181221.csv", "future/cme/minute/es"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Hour, TickType.Trade, "es_trade.zip", "es_trade_201812_20181221.csv", "future/cme/hour"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Daily, TickType.Trade, "es_trade.zip", "es_trade_201812_20181221.csv", "future/cme/daily"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Tick, TickType.Trade, "20181210_trade.zip", "20181210_es_tick_trade_201812.csv", "future/cme/tick/es"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Second, TickType.Trade, "20181210_trade.zip", "20181210_es_second_trade_201812.csv", "future/cme/second/es"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Minute, TickType.Trade, "20181210_trade.zip", "20181210_es_minute_trade_201812.csv", "future/cme/minute/es"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Hour, TickType.Trade, "es_trade.zip", "es_trade_201812.csv", "future/cme/hour"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Daily, TickType.Trade, "es_trade.zip", "es_trade_201812.csv", "future/cme/daily"),
 
                 // Futures (expiration month == contract month) - quotes
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Tick, TickType.Quote, "20181210_quote.zip", "20181210_es_tick_quote_201812_20181221.csv", "future/cme/tick/es"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Second, TickType.Quote, "20181210_quote.zip", "20181210_es_second_quote_201812_20181221.csv", "future/cme/second/es"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Minute, TickType.Quote, "20181210_quote.zip", "20181210_es_minute_quote_201812_20181221.csv", "future/cme/minute/es"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Hour, TickType.Quote, "es_quote.zip", "es_quote_201812_20181221.csv", "future/cme/hour"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Daily, TickType.Quote, "es_quote.zip", "es_quote_201812_20181221.csv", "future/cme/daily"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Tick, TickType.Quote, "20181210_quote.zip", "20181210_es_tick_quote_201812.csv", "future/cme/tick/es"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Second, TickType.Quote, "20181210_quote.zip", "20181210_es_second_quote_201812.csv", "future/cme/second/es"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Minute, TickType.Quote, "20181210_quote.zip", "20181210_es_minute_quote_201812.csv", "future/cme/minute/es"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Hour, TickType.Quote, "es_quote.zip", "es_quote_201812.csv", "future/cme/hour"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Daily, TickType.Quote, "es_quote.zip", "es_quote_201812.csv", "future/cme/daily"),
 
                 // Futures (expiration month == contract month) - OpenInterest
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Tick, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_es_tick_openinterest_201812_20181221.csv", "future/cme/tick/es"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Second, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_es_second_openinterest_201812_20181221.csv", "future/cme/second/es"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Minute, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_es_minute_openinterest_201812_20181221.csv", "future/cme/minute/es"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Hour, TickType.OpenInterest, "es_openinterest.zip", "es_openinterest_201812_20181221.csv", "future/cme/hour"),
-                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Daily, TickType.OpenInterest, "es_openinterest.zip", "es_openinterest_201812_20181221.csv", "future/cme/daily"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Tick, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_es_tick_openinterest_201812.csv", "future/cme/tick/es"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Second, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_es_second_openinterest_201812.csv", "future/cme/second/es"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Minute, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_es_minute_openinterest_201812.csv", "future/cme/minute/es"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Hour, TickType.OpenInterest, "es_openinterest.zip", "es_openinterest_201812.csv", "future/cme/hour"),
+                new LeanDataTestParameters(Symbols.Future_ESZ18_Dec2018, dateFutures, Resolution.Daily, TickType.OpenInterest, "es_openinterest.zip", "es_openinterest_201812.csv", "future/cme/daily"),
 
                 // Futures (expiration month < contract month) - trades
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Tick, TickType.Trade, "20181210_trade.zip", "20181210_cl_tick_trade_201901_20181219.csv", "future/nymex/tick/cl"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Second, TickType.Trade, "20181210_trade.zip", "20181210_cl_second_trade_201901_20181219.csv", "future/nymex/second/cl"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Minute, TickType.Trade, "20181210_trade.zip", "20181210_cl_minute_trade_201901_20181219.csv", "future/nymex/minute/cl"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Hour, TickType.Trade, "cl_trade.zip", "cl_trade_201901_20181219.csv", "future/nymex/hour"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Daily, TickType.Trade, "cl_trade.zip", "cl_trade_201901_20181219.csv", "future/nymex/daily"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Tick, TickType.Trade, "20181210_trade.zip", "20181210_cl_tick_trade_201901.csv", "future/nymex/tick/cl"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Second, TickType.Trade, "20181210_trade.zip", "20181210_cl_second_trade_201901.csv", "future/nymex/second/cl"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Minute, TickType.Trade, "20181210_trade.zip", "20181210_cl_minute_trade_201901.csv", "future/nymex/minute/cl"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Hour, TickType.Trade, "cl_trade.zip", "cl_trade_201901.csv", "future/nymex/hour"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Daily, TickType.Trade, "cl_trade.zip", "cl_trade_201901.csv", "future/nymex/daily"),
 
                 // Futures (expiration month < contract month) - quotes
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Tick, TickType.Quote, "20181210_quote.zip", "20181210_cl_tick_quote_201901_20181219.csv", "future/nymex/tick/cl"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Second, TickType.Quote, "20181210_quote.zip", "20181210_cl_second_quote_201901_20181219.csv", "future/nymex/second/cl"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Minute, TickType.Quote, "20181210_quote.zip", "20181210_cl_minute_quote_201901_20181219.csv", "future/nymex/minute/cl"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Hour, TickType.Quote, "cl_quote.zip", "cl_quote_201901_20181219.csv", "future/nymex/hour"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Daily, TickType.Quote, "cl_quote.zip", "cl_quote_201901_20181219.csv", "future/nymex/daily"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Tick, TickType.Quote, "20181210_quote.zip", "20181210_cl_tick_quote_201901.csv", "future/nymex/tick/cl"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Second, TickType.Quote, "20181210_quote.zip", "20181210_cl_second_quote_201901.csv", "future/nymex/second/cl"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Minute, TickType.Quote, "20181210_quote.zip", "20181210_cl_minute_quote_201901.csv", "future/nymex/minute/cl"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Hour, TickType.Quote, "cl_quote.zip", "cl_quote_201901.csv", "future/nymex/hour"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Daily, TickType.Quote, "cl_quote.zip", "cl_quote_201901.csv", "future/nymex/daily"),
 
                 // Futures (expiration month < contract month) - open interest
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Tick, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_cl_tick_openinterest_201901_20181219.csv", "future/nymex/tick/cl"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Second, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_cl_second_openinterest_201901_20181219.csv", "future/nymex/second/cl"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Minute, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_cl_minute_openinterest_201901_20181219.csv", "future/nymex/minute/cl"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Hour, TickType.OpenInterest, "cl_openinterest.zip", "cl_openinterest_201901_20181219.csv", "future/nymex/hour"),
-                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Daily, TickType.OpenInterest, "cl_openinterest.zip", "cl_openinterest_201901_20181219.csv", "future/nymex/daily"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Tick, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_cl_tick_openinterest_201901.csv", "future/nymex/tick/cl"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Second, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_cl_second_openinterest_201901.csv", "future/nymex/second/cl"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Minute, TickType.OpenInterest, "20181210_openinterest.zip", "20181210_cl_minute_openinterest_201901.csv", "future/nymex/minute/cl"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Hour, TickType.OpenInterest, "cl_openinterest.zip", "cl_openinterest_201901.csv", "future/nymex/hour"),
+                new LeanDataTestParameters(Symbols.Future_CLF19_Jan2019, dateFutures, Resolution.Daily, TickType.OpenInterest, "cl_openinterest.zip", "cl_openinterest_201901.csv", "future/nymex/daily"),
 
             }.Select(x => new TestCaseData(x).SetName(x.Name)).ToArray();
         }

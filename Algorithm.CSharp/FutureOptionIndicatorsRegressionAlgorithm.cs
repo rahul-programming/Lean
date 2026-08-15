@@ -22,7 +22,7 @@ namespace QuantConnect.Algorithm.CSharp
 {
     public class FutureOptionIndicatorsRegressionAlgorithm : OptionIndicatorsRegressionAlgorithm
     {
-        protected override string ExpectedGreeks { get; set; } = "Implied Volatility: 0.14089,Delta: 0.6308,Gamma: 0.00207,Vega: 5.61431,Theta: -0.48816,Rho: 0.02962";
+        protected override string ExpectedGreeks { get; set; } = "Implied Volatility: 0.13941,Delta: 0.63509,Gamma: 0.00209,Vega: 5.64129,Theta: -0.47731,Rho: 0.03145";
 
         public override void Initialize()
         {
@@ -32,7 +32,7 @@ namespace QuantConnect.Algorithm.CSharp
             var underlying = AddFutureContract(QuantConnect.Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2020, 3, 20)),
                 Resolution.Minute).Symbol;
 
-            var option = AddFutureOptionContract(OptionChainProvider.GetOptionContractList(underlying, Time)
+            var option = AddFutureOptionContract(OptionChain(underlying)
                 .Where(x => x.ID.StrikePrice <= 3200m && x.ID.OptionRight == OptionRight.Call)
                 .OrderByDescending(x => x.ID.StrikePrice)
                 .Take(1)
@@ -50,6 +50,11 @@ namespace QuantConnect.Algorithm.CSharp
         /// Data Points count of all timeslices of algorithm
         /// </summary>
         public override long DataPoints => 1817;
+
+        /// <summary>
+        /// Data Points count of the algorithm history
+        /// </summary>
+        public override int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// This is used by the regression test system to indicate what the expected statistics are from running the algorithm
@@ -82,6 +87,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", ""},
             {"Portfolio Turnover", "0%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "d41d8cd98f00b204e9800998ecf8427e"}
         };
     }

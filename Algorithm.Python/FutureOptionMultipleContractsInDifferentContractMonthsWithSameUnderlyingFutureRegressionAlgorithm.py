@@ -26,7 +26,7 @@ class FutureOptionMultipleContractsInDifferentContractMonthsWithSameUnderlyingFu
             self._create_option(datetime(2020, 2, 25), OptionRight.CALL, 1600.0): False,
             self._create_option(datetime(2020, 2, 25), OptionRight.PUT, 1545.0): False
         }
-        
+
         # Required for FOPs to use extended hours, until GH #6491 is addressed
         self.universe_settings.extended_market_hours = True
 
@@ -34,9 +34,9 @@ class FutureOptionMultipleContractsInDifferentContractMonthsWithSameUnderlyingFu
         self.set_end_date(2020, 1, 6)
 
         gold_futures = self.add_future("GC", Resolution.MINUTE, Market.COMEX, extended_market_hours=True)
-        gold_futures.SetFilter(0, 365)
+        gold_futures.set_filter(0, 365)
 
-        self.add_future_option(gold_futures.Symbol)
+        self.add_future_option(gold_futures.symbol)
 
     def on_data(self, data: Slice):
         for symbol in data.quote_bars.keys():
@@ -51,10 +51,10 @@ class FutureOptionMultipleContractsInDifferentContractMonthsWithSameUnderlyingFu
     def on_end_of_algorithm(self):
         not_encountered = [str(k) for k,v in self.expected_symbols.items() if not v]
         if any(not_encountered):
-            raise AggregateException(f"Expected all Symbols encountered and invested in, but the following were not found: {', '.join(not_encountered)}")
+            raise AssertionError(f"Expected all Symbols encountered and invested in, but the following were not found: {', '.join(not_encountered)}")
 
         if not self.portfolio.invested:
-            raise AggregateException("Expected holdings at the end of algorithm, but none were found.")
+            raise AssertionError("Expected holdings at the end of algorithm, but none were found.")
 
     def is_in_regular_hours(self, symbol):
         return self.securities[symbol].exchange.exchange_open

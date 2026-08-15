@@ -23,6 +23,7 @@ using QuantConnect.Lean.Engine;
 using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Lean.Engine.RealTime;
 using QuantConnect.Packets;
+using QuantConnect.Scheduling;
 using QuantConnect.Tests.Engine.DataFeeds;
 using QuantConnect.Util.RateLimit;
 
@@ -113,20 +114,8 @@ namespace QuantConnect.Tests.Common.Scheduling
         [Test]
         public void TriggersWeeklyScheduledEventsEachWeekLive()
         {
-            var algorithm = new AlgorithmStub();
-
-            var handler = new  TestableLiveTradingRealTimeHandler();
             var time = new DateTime(2024, 02, 10);
-            handler.ManualTimeProvider.SetCurrentTime(time);
-            var timeLimitManager = new AlgorithmTimeLimitManager(TokenBucket.Null, TimeSpan.FromMinutes(20));
-            handler.Setup(algorithm, new LiveNodePacket(), null, null, timeLimitManager);
-
-            algorithm.Schedule.SetEventSchedule(handler);
-
-            algorithm.SetDateTime(time);
-
-            var spy = algorithm.AddEquity("SPY").Symbol;
-
+            SetUp(time, out var algorithm, out var handler, out var spy);
             var eventTriggerTimes = new List<DateTime>();
             var scheduledEvent = algorithm.Schedule.On(algorithm.Schedule.DateRules.WeekStart(spy),
                 algorithm.Schedule.TimeRules.BeforeMarketClose(spy, 60),
@@ -156,7 +145,12 @@ namespace QuantConnect.Tests.Common.Scheduling
             // Start
             handler.SetTime(time);
 
-            finished.Wait(TimeSpan.FromSeconds(15));
+            // The time advance is driven by the live real-time handler firing the scheduled events above, so the
+            // fast-forward from February to April is bounded by wall-clock. Give it a generous budget and assert it
+            // actually reached the end, instead of asserting on a partially advanced timeline (which under load
+            // dropped the final week's scheduled event and produced a misleading count mismatch).
+            Assert.IsTrue(finished.Wait(TimeSpan.FromSeconds(120)),
+                "Timed out waiting for the scheduled time advance to reach April");
 
             handler.Exit();
 
@@ -174,11 +168,73 @@ namespace QuantConnect.Tests.Common.Scheduling
             CollectionAssert.AreEqual(expectedEventTriggerTimes, eventTriggerTimes);
         }
 
+        [Test]
+        public void DatesReturnedAreNormalized()
+        {
+            var time = new DateTime(2024, 02, 10);
+            SetUp(time, out var algorithm, out var handler, out var spy);
+            var eventTriggerTimes = new List<DateTime>();
+            using var finished = new ManualResetEventSlim(false);
+
+            // Schedule a task to advance time
+            var timeStep = TimeSpan.FromMinutes(1);
+            var wasCalled = false;
+            Func<DateTime, DateTime, IEnumerable<DateTime>> func = (date1, date2) =>
+            {
+                Assert.AreEqual(DateTimeKind.Unspecified, date1.Kind);
+                Assert.AreEqual(DateTimeKind.Unspecified, date2.Kind);
+                wasCalled = true;
+                return new List<DateTime> { date1, date2 };
+            };
+
+            algorithm.Schedule.On(new FuncDateRule("Test", func),
+                algorithm.Schedule.TimeRules.Every(timeStep),
+                () =>
+                {
+                    handler.ManualTimeProvider.Advance(timeStep);
+                    var now = handler.ManualTimeProvider.GetUtcNow();
+                    finished.Set();
+                });
+
+            // Start
+            handler.SetTime(time);
+
+            finished.Wait(TimeSpan.FromSeconds(15));
+
+            handler.Exit();
+            Assert.IsTrue(wasCalled);
+        }
+
+        private void SetUp(DateTime time, out QCAlgorithm algorithm, out TestableLiveTradingRealTimeHandler handler, out Symbol spy)
+        {
+            algorithm = new AlgorithmStub();
+
+            handler = new TestableLiveTradingRealTimeHandler();
+
+            handler.ManualTimeProvider.SetCurrentTime(time);
+            var timeLimitManager = new AlgorithmTimeLimitManager(TokenBucket.Null, TimeSpan.FromMinutes(20));
+            handler.Setup(algorithm, new LiveNodePacket(), null, null, timeLimitManager);
+
+            algorithm.Schedule.SetEventSchedule(handler);
+
+            algorithm.SetDateTime(time);
+
+            spy = algorithm.AddEquity("SPY").Symbol;
+        }
+
         private class TestableLiveTradingRealTimeHandler : LiveTradingRealTimeHandler
         {
             public ManualTimeProvider ManualTimeProvider = new ManualTimeProvider();
 
             protected override ITimeProvider TimeProvider => ManualTimeProvider;
+
+            // Time is fully driven by the ManualTimeProvider in tests, so there's no need to pace the
+            // scan loop to real wall-clock time. Sleeping here (Thread.Sleep granularity is ~15ms on
+            // Windows) would make the loop take longer than the test's timeout for long simulated ranges,
+            // causing the last scheduled events to be missed intermittently.
+            protected override void WaitTillNextSecond(DateTime time)
+            {
+            }
         }
     }
 }

@@ -24,7 +24,6 @@ using System.Threading.Tasks;
 using ICSharpCode.SharpZipLib.Core;
 using ICSharpCode.SharpZipLib.GZip;
 using ICSharpCode.SharpZipLib.Tar;
-using Ionic.Zip;
 using QuantConnect.Logging;
 using ZipEntry = ICSharpCode.SharpZipLib.Zip.ZipEntry;
 using ZipFile = Ionic.Zip.ZipFile;
@@ -177,26 +176,7 @@ namespace QuantConnect
         /// <returns>True on success</returns>
         public static bool ZipCreateAppendData(string path, string entry, string data, bool overrideEntry = false)
         {
-            try
-            {
-                using (var zip = File.Exists(path) ? ZipFile.Read(path) : new ZipFile(path))
-                {
-                    if (zip.ContainsEntry(entry) && overrideEntry)
-                    {
-                        zip.RemoveEntry(entry);
-                    }
-
-                    zip.AddEntry(entry, data);
-                    zip.UseZip64WhenSaving = Zip64Option.Always;
-                    zip.Save();
-                }
-            }
-            catch (Exception err)
-            {
-                Log.Error(err);
-                return false;
-            }
-            return true;
+            return ZipCreateAppendData(path, entry, Encoding.UTF8.GetBytes(data), overrideEntry);
         }
 
         /// <summary>
@@ -209,19 +189,38 @@ namespace QuantConnect
         /// <returns>True on success</returns>
         public static bool ZipCreateAppendData(string path, string entry, byte[] data, bool overrideEntry = false)
         {
+            return ZipCreateAppendData(path, entry, s => s.Write(data, 0, data.Length), overrideEntry);
+        }
+
+        /// <summary>
+        /// Append the zip data to the file-entry specified.
+        /// </summary>
+        /// <param name="path">The zip file path</param>
+        /// <param name="entry">The entry name</param>
+        /// <param name="write">Write data callback</param>
+        /// <param name="overrideEntry">True if should override entry if it already exists</param>
+        /// <returns>True on success</returns>
+        private static bool ZipCreateAppendData(string path, string entry, Action<Stream> write, bool overrideEntry = false)
+        {
             try
             {
-                using (var zip = File.Exists(path) ? ZipFile.Read(path) : new ZipFile(path))
-                {
-                    if (overrideEntry && zip.ContainsEntry(entry))
-                    {
-                        zip.RemoveEntry(entry);
-                    }
+                using var fs = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                using var archive = new ZipArchive(fs, ZipArchiveMode.Update, leaveOpen: false);
 
-                    zip.AddEntry(entry, data);
-                    zip.UseZip64WhenSaving = Zip64Option.Always;
-                    zip.Save();
+                var existing = archive.GetEntry(entry);
+                if (existing != null)
+                {
+                    if (!overrideEntry)
+                    {
+                        return false;
+                    }
+                    existing.Delete();
                 }
+
+                var zipEntry = archive.CreateEntry(entry, CompressionLevel.Optimal);
+
+                using var entryStream = zipEntry.Open();
+                write(entryStream);
             }
             catch (Exception err)
             {
@@ -297,18 +296,88 @@ namespace QuantConnect
         /// <returns>The zipped file as a byte array</returns>
         public static byte[] ZipBytes(byte[] bytes, string zipEntryName)
         {
-            using (var memoryStream = new MemoryStream())
+            using var memoryStream = new MemoryStream();
+            ZipBytesAsync(memoryStream, bytes, zipEntryName, null).ConfigureAwait(false).GetAwaiter().GetResult();
+            return memoryStream.ToArray();
+        }
+
+        /// <summary>
+        /// Performs an in memory zip of the specified bytes in the target stream
+        /// </summary>
+        /// <param name="target">The target stream</param>
+        /// <param name="data">The file contents in bytes to be zipped</param>
+        /// <param name="zipEntryName">The zip entry name</param>
+        /// <param name="mode">The archive mode</param>
+        /// <param name="compressionLevel">The desired compression level</param>
+        /// <returns>The zipped file as a byte array</returns>
+        public static async Task ZipBytesAsync(Stream target, byte[] data, string zipEntryName, ZipArchiveMode? mode = null,
+            CompressionLevel? compressionLevel = null)
+        {
+            await ZipBytesAsync(target, [new KeyValuePair<byte[], string>(data, zipEntryName)], mode, compressionLevel).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Performs an in memory zip of the specified bytes in the target stream
+        /// </summary>
+        /// <param name="target">The target stream</param>
+        /// <param name="data">The file contents in bytes to be zipped</param>
+        /// <param name="mode">The archive mode</param>
+        /// <param name="compressionLevel">The desired compression level</param>
+        /// <returns>The zipped file as a byte array</returns>
+        public static async Task ZipBytesAsync(Stream target, IEnumerable<KeyValuePair<byte[], string>> data, ZipArchiveMode? mode = null,
+            CompressionLevel? compressionLevel = null)
+        {
+            compressionLevel ??= CompressionLevel.SmallestSize;
+            using var archive = new ZipArchive(target, mode ?? ZipArchiveMode.Create, true);
+            foreach (var kvp in data)
             {
-                using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+                var entry = archive.CreateEntry(kvp.Value, compressionLevel.Value);
+                using var entryStream = entry.Open();
+                await entryStream.WriteAsync(kvp.Key).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Performs an in memory zip of the specified stream in the target stream
+        /// </summary>
+        /// <param name="target">The target stream</param>
+        /// <param name="data">The file contents in bytes to be zipped</param>
+        /// <param name="mode">The archive mode</param>
+        /// <param name="compressionLevel">The desired compression level</param>
+        /// <returns>The zipped file as a byte array</returns>
+        public static async Task ZipStreamsAsync(string target, IEnumerable<KeyValuePair<string, Stream>> data, ZipArchiveMode? mode = null,
+            CompressionLevel? compressionLevel = null)
+        {
+            using var fileStream = mode == ZipArchiveMode.Update
+                ? new FileStream(target, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)
+                : new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None);
+            await ZipStreamsAsync(fileStream, data, mode, compressionLevel).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Performs an in memory zip of the specified stream in the target stream
+        /// </summary>
+        /// <param name="target">The target stream</param>
+        /// <param name="data">The file contents in bytes to be zipped</param>
+        /// <param name="mode">The archive mode</param>
+        /// <param name="compressionLevel">The desired compression level</param>
+        /// <param name="leaveStreamOpen">True to leave the taget stream open</param>
+        /// <returns>The zipped file as a byte array</returns>
+        public static async Task ZipStreamsAsync(Stream target, IEnumerable<KeyValuePair<string, Stream>> data, ZipArchiveMode? mode = null,
+            CompressionLevel? compressionLevel = null, bool leaveStreamOpen = false)
+        {
+            compressionLevel ??= CompressionLevel.SmallestSize;
+            using var archive = new ZipArchive(target, mode ?? ZipArchiveMode.Create, leaveStreamOpen);
+            foreach (var kvp in data)
+            {
+                if (archive.Mode == ZipArchiveMode.Update)
                 {
-                    var entry = archive.CreateEntry(zipEntryName);
-                    using (var entryStream = entry.Open())
-                    {
-                        entryStream.Write(bytes, 0, bytes.Length);
-                    }
+                    var existingEntry = archive.GetEntry(kvp.Key);
+                    existingEntry?.Delete();
                 }
-                // 'ToArray' after disposing of 'ZipArchive' since it finishes writing all the data
-                return memoryStream.ToArray();
+                var entry = archive.CreateEntry(kvp.Key, compressionLevel.Value);
+                using var entryStream = entry.Open();
+                await kvp.Value.CopyToAsync(entryStream).ConfigureAwait(false);
             }
         }
 
@@ -776,7 +845,7 @@ namespace QuantConnect
         /// <returns>List of unzipped file names</returns>
         public static List<string> UnzipToFolder(byte[] zipData, string outputFolder)
         {
-            var stream = new MemoryStream(zipData);
+            using var stream = new MemoryStream(zipData);
             return UnzipToFolder(stream, outputFolder);
         }
 
@@ -788,7 +857,7 @@ namespace QuantConnect
         public static List<string> UnzipToFolder(string zipFile)
         {
             var outFolder = Path.GetDirectoryName(zipFile);
-            var stream = File.OpenRead(zipFile);
+            using var stream = File.OpenRead(zipFile);
             return UnzipToFolder(stream, outFolder);
         }
 
@@ -806,22 +875,18 @@ namespace QuantConnect
             {
                 outFolder = Directory.GetCurrentDirectory();
             }
-            ICSharpCode.SharpZipLib.Zip.ZipFile zf = null;
 
             try
             {
-                zf = new ICSharpCode.SharpZipLib.Zip.ZipFile(dataStream);
+                using var archive = new ZipArchive(dataStream, ZipArchiveMode.Read, leaveOpen: true);
 
-                foreach (ZipEntry zipEntry in zf)
+                foreach (var zipEntry in archive.Entries)
                 {
                     //Ignore Directories
-                    if (!zipEntry.IsFile) continue;
-
-                    var buffer = new byte[4096]; // 4K is optimum
-                    var zipStream = zf.GetInputStream(zipEntry);
+                    if (string.IsNullOrEmpty(zipEntry.Name)) continue;
 
                     // Manipulate the output filename here as desired.
-                    var fullZipToPath = Path.Combine(outFolder, zipEntry.Name);
+                    var fullZipToPath = Path.Combine(outFolder, zipEntry.FullName);
 
                     var targetFile = new FileInfo(fullZipToPath);
                     if (targetFile.Directory != null && !targetFile.Directory.Exists)
@@ -833,10 +898,9 @@ namespace QuantConnect
                     files.Add(fullZipToPath);
 
                     //Copy the data in buffer chunks
-                    using (var streamWriter = File.Create(fullZipToPath))
-                    {
-                        StreamUtils.Copy(zipStream, streamWriter, buffer);
-                    }
+                    using var entryStream = zipEntry.Open();
+                    using var streamWriter = File.Create(fullZipToPath);
+                    entryStream.CopyTo(streamWriter);
                 }
             }
             catch
@@ -844,14 +908,6 @@ namespace QuantConnect
                 // lets catch the exception just to log some information about the zip file
                 Log.Error($"Compression.UnzipToFolder(): Failure: outFolder: {outFolder} - files: {string.Join(",", files)}");
                 throw;
-            }
-            finally
-            {
-                if (zf != null)
-                {
-                    zf.IsStreamOwner = true; // Makes close also shut the underlying stream
-                    zf.Close(); // Ensure we release resources
-                }
             }
             return files;
         } // End UnZip

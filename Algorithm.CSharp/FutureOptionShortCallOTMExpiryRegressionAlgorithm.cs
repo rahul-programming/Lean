@@ -55,7 +55,7 @@ namespace QuantConnect.Algorithm.CSharp
                 Resolution.Minute).Symbol;
 
             // Select a future option expiring ITM, and adds it to the algorithm.
-            _esOption = AddFutureOptionContract(OptionChainProvider.GetOptionContractList(_es19m20, Time)
+            _esOption = AddFutureOptionContract(OptionChain(_es19m20)
                 .Where(x => x.ID.StrikePrice >= 3400m && x.ID.OptionRight == OptionRight.Call)
                 .OrderBy(x => x.ID.StrikePrice)
                 .Take(1)
@@ -168,12 +168,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 212195;
+        public long DataPoints => 212198;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -194,9 +194,9 @@ namespace QuantConnect.Algorithm.CSharp
             {"Start Equity", "100000"},
             {"End Equity", "101736.08"},
             {"Net Profit", "1.736%"},
-            {"Sharpe Ratio", "0.597"},
+            {"Sharpe Ratio", "0.596"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "49.736%"},
+            {"Probabilistic Sharpe Ratio", "32.492%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
@@ -206,12 +206,13 @@ namespace QuantConnect.Algorithm.CSharp
             {"Annual Variance", "0.001"},
             {"Information Ratio", "0.009"},
             {"Tracking Error", "0.375"},
-            {"Treynor Ratio", "-11.057"},
+            {"Treynor Ratio", "-11.048"},
             {"Total Fees", "$1.42"},
             {"Estimated Strategy Capacity", "$100000000.00"},
-            {"Lowest Capacity Asset", "ES XFH59UPNF7B8|ES XFH59UK0MYO1"},
+            {"Lowest Capacity Asset", "ES XFH59UPNJHMS|ES XFH59UK0MYO1"},
             {"Portfolio Turnover", "0.01%"},
-            {"OrderListHash", "18f4574575cadc142af8f98ae8ba332b"}
+            {"Drawdown Recovery", "165"},
+            {"OrderListHash", "3e39f8bdb373b371999835fbf680eef8"}
         };
     }
 }

@@ -13,12 +13,12 @@
  * limitations under the License.
 */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using QuantConnect.Data;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace QuantConnect.Algorithm.CSharp
 {
@@ -110,14 +110,14 @@ namespace QuantConnect.Algorithm.CSharp
 
             foreach (var addedSecurity in changes.AddedSecurities)
             {
-                var option = OptionChainProvider.GetOptionContractList(addedSecurity.Symbol, Time)
-                    .OrderBy(symbol => symbol.ID.Symbol)
+                var option = OptionChain(addedSecurity.Symbol)
+                    .OrderBy(contractData => contractData.ID.Symbol)
                     .First(optionContract => optionContract.ID.Date == _expiration
                                                       && optionContract.ID.OptionRight == OptionRight.Call
                                                       && optionContract.ID.OptionStyle == OptionStyle.American);
                 AddOptionContract(option);
 
-                foreach (var symbol in new[] { option, option.Underlying })
+                foreach (var symbol in new[] { option.Symbol, option.UnderlyingSymbol })
                 {
                     var config = SubscriptionManager.SubscriptionDataConfigService.GetSubscriptionDataConfigs(symbol).ToList();
 
@@ -169,12 +169,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 5798;
+        public long DataPoints => 5800;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 2;
 
         /// <summary>
         /// Final status of the algorithm
@@ -197,7 +197,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "-0.232%"},
             {"Sharpe Ratio", "-8.903"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "1.216%"},
+            {"Probabilistic Sharpe Ratio", "0.024%"},
             {"Loss Rate", "100%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
@@ -210,9 +210,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0.335"},
             {"Total Fees", "$2.00"},
             {"Estimated Strategy Capacity", "$2800000.00"},
-            {"Lowest Capacity Asset", "AOL VRKS95ENLBYE|AOL R735QTJ8XC9X"},
+            {"Lowest Capacity Asset", "AOL VRKS95ENPM9Y|AOL R735QTJ8XC9X"},
             {"Portfolio Turnover", "1.14%"},
-            {"OrderListHash", "cde7b518b7ad6d86cff6e5e092d9a413"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "e33b98d8e94ed92d0441fc6fe0d461fb"}
         };
     }
 }

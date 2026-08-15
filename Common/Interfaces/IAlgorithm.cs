@@ -32,6 +32,8 @@ using QuantConnect.Securities.Option;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Algorithm.Framework.Alphas;
 using QuantConnect.Algorithm.Framework.Alphas.Analysis;
+using QuantConnect.Commands;
+using Common.Util;
 
 namespace QuantConnect.Interfaces
 {
@@ -428,7 +430,7 @@ namespace QuantConnect.Interfaces
         /// <summary>
         /// Gets a read-only dictionary with all current parameters
         /// </summary>
-        IReadOnlyDictionary<string, string> GetParameters();
+        ReadOnlyExtendedDictionary<string, string> GetParameters();
 
         /// <summary>
         /// Gets the parameter with the specified name. If a parameter with the specified name does not exist,
@@ -589,11 +591,13 @@ namespace QuantConnect.Interfaces
         /// <remarks>Deprecated because different assets have different market close times,
         /// and because Python does not support two methods with the same name</remarks>
         [Obsolete("This method is deprecated. Please use this overload: OnEndOfDay(Symbol symbol)")]
+        [StubsIgnore]
         void OnEndOfDay();
 
         /// <summary>
         /// Call this method at the end of each day of data.
         /// </summary>
+        [StubsAvoidImplicits]
         void OnEndOfDay(Symbol symbol);
 
         /// <summary>
@@ -607,6 +611,13 @@ namespace QuantConnect.Interfaces
         /// </summary>
         /// <param name="newEvent">Event information</param>
         void OnOrderEvent(OrderEvent newEvent);
+
+        /// <summary>
+        /// Generic untyped command call handler
+        /// </summary>
+        /// <param name="data">The associated data</param>
+        /// <returns>True if success, false otherwise. Returning null will disable command feedback</returns>
+        bool? OnCommand(dynamic data);
 
         /// <summary>
         /// Will submit an order request to the algorithm
@@ -699,7 +710,7 @@ namespace QuantConnect.Interfaces
         /// <param name="extendedMarketHours">ExtendedMarketHours send in data from 4am - 8pm, not used for FOREX</param>
         /// <param name="dataMappingMode">The contract mapping mode to use for the security</param>
         /// <param name="dataNormalizationMode">The price scaling mode to use for the security</param>
-        Security AddSecurity(SecurityType securityType, string symbol, Resolution? resolution, string market, bool fillForward, decimal leverage, bool extendedMarketHours,
+        Security AddSecurity(SecurityType securityType, string symbol, Resolution? resolution, string market, bool? fillForward, decimal leverage, bool? extendedMarketHours,
             DataMappingMode? dataMappingMode = null, DataNormalizationMode? dataNormalizationMode = null);
 
         /// <summary>
@@ -715,7 +726,7 @@ namespace QuantConnect.Interfaces
         /// <param name="contractDepthOffset">The continuous contract desired offset from the current front month.
         /// For example, 0 (default) will use the front month, 1 will use the back month contract</param>
         /// <returns>The new Security that was added to the algorithm</returns>
-        Security AddSecurity(Symbol symbol, Resolution? resolution = null, bool fillForward = true, decimal leverage = Security.NullLeverage, bool extendedMarketHours = false,
+        Security AddSecurity(Symbol symbol, Resolution? resolution = null, bool? fillForward = null, decimal leverage = Security.NullLeverage, bool? extendedMarketHours = null,
             DataMappingMode? dataMappingMode = null, DataNormalizationMode? dataNormalizationMode = null, int contractDepthOffset = 0);
 
         /// <summary>
@@ -745,7 +756,8 @@ namespace QuantConnect.Interfaces
         /// open orders and then liquidate any existing holdings
         /// </summary>
         /// <param name="symbol">The symbol of the security to be removed</param>
-        bool RemoveSecurity(Symbol symbol);
+        /// <param name="tag">Optional tag to indicate the cause of removal</param>
+        bool RemoveSecurity(Symbol symbol, string tag = null);
 
         /// <summary>
         /// Sets the account currency cash symbol this algorithm is to manage, as well as
@@ -828,9 +840,23 @@ namespace QuantConnect.Interfaces
         /// Get the last known price using the history provider.
         /// Useful for seeding securities with the correct price
         /// </summary>
-        /// <param name="security"><see cref="Security"/> object for which to retrieve historical data</param>
+        /// <param name="symbol">The symbol for which to retrieve historical data</param>
         /// <returns>A single <see cref="BaseData"/> object with the last known price</returns>
-        BaseData GetLastKnownPrice(Security security);
+        BaseData GetLastKnownPrice(Symbol symbol);
+
+        /// <summary>
+        /// Yields data to warmup a security for all it's subscribed data types
+        /// </summary>
+        /// <param name="symbol">The symbol for which to retrieve historical data</param>
+        /// <returns>Securities historical data</returns>
+        IEnumerable<BaseData> GetLastKnownPrices(Symbol symbol);
+
+        /// <summary>
+        /// Yields data to warm up multiple securities for all their subscribed data types
+        /// </summary>
+        /// <param name="symbols">The symbols we want to get seed data for</param>
+        /// <returns>Securities historical data</returns>
+        DataDictionary<IEnumerable<BaseData>> GetLastKnownPrices(IEnumerable<Symbol> symbols);
 
         /// <summary>
         /// Set the runtime error
@@ -919,5 +945,17 @@ namespace QuantConnect.Interfaces
         /// </summary>
         /// <param name="tags">The tags</param>
         void SetTags(HashSet<string> tags);
+
+        /// <summary>
+        /// Run a callback command instance
+        /// </summary>
+        /// <param name="command">The callback command instance</param>
+        /// <returns>The command result</returns>
+        CommandResultPacket RunCommand(CallbackCommand command);
+
+        /// <summary>
+        /// Gets the default order properties
+        /// </summary>
+        IOrderProperties DefaultOrderProperties { get; }
     }
 }

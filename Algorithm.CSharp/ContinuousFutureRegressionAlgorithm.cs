@@ -19,7 +19,6 @@ using QuantConnect.Data;
 using QuantConnect.Orders;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
-using QuantConnect.Data.Market;
 using System.Collections.Generic;
 using QuantConnect.Securities.Future;
 using QuantConnect.Data.UniverseSelection;
@@ -31,7 +30,7 @@ namespace QuantConnect.Algorithm.CSharp
     /// </summary>
     public class ContinuousFutureRegressionAlgorithm : QCAlgorithm, IRegressionAlgorithmDefinition
     {
-        private List<SymbolChangedEvent> _mappings = new();
+        private List<Symbol> _previousMappedContractSymbols = new();
         private Symbol _currentMappedSymbol;
         private Future _continuousContract;
         private DateTime _lastMonth;
@@ -77,7 +76,7 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 if (changedEvent.Symbol == _continuousContract.Symbol)
                 {
-                    _mappings.Add(changedEvent);
+                    _previousMappedContractSymbols.Add(Symbol(changedEvent.OldSymbol));
                     Log($"{Time} - SymbolChanged event: {changedEvent}");
 
                     if (_currentMappedSymbol == _continuousContract.Mapped)
@@ -144,15 +143,20 @@ namespace QuantConnect.Algorithm.CSharp
         public override void OnEndOfAlgorithm()
         {
             var expectedMappingCounts = 2;
-            if (_mappings.Count != expectedMappingCounts)
+            if (_previousMappedContractSymbols.Count != expectedMappingCounts)
             {
-                throw new RegressionTestException($"Unexpected symbol changed events: {_mappings.Count}, was expecting {expectedMappingCounts}");
+                throw new RegressionTestException($"Unexpected symbol changed events: {_previousMappedContractSymbols.Count}, was expecting {expectedMappingCounts}");
             }
 
-            var securities = Securities.Total.Where(sec => !sec.IsTradable && !sec.Symbol.IsCanonical() && sec.Symbol.SecurityType == SecurityType.Future).ToList();
-            if (securities.Count != 1)
+            var delistedSecurities = _previousMappedContractSymbols
+                .Select(x => Securities.Total.Single(sec => sec.Symbol == x))
+                .Where(x => x.Symbol.ID.Date < Time)
+                .ToList();
+            var markedDelistedSecurities = delistedSecurities.Where(x => x.IsDelisted && !x.IsTradable).ToList();
+            if (markedDelistedSecurities.Count != delistedSecurities.Count)
             {
-                throw new RegressionTestException($"We should have a single non tradable future contract security! found: {securities.Count}");
+                throw new RegressionTestException($"Not all delisted contracts are properly market as delisted and non-tradable: " +
+                    $"only {markedDelistedSecurities.Count} are marked, was expecting {delistedSecurities.Count}");
             }
         }
 
@@ -169,7 +173,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 713369;
+        public long DataPoints => 162575;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -186,33 +190,34 @@ namespace QuantConnect.Algorithm.CSharp
         /// </summary>
         public Dictionary<string, string> ExpectedStatistics => new Dictionary<string, string>
         {
-            {"Total Orders", "3"},
-            {"Average Win", "1.50%"},
+            {"Total Orders", "4"},
+            {"Average Win", "3.31%"},
             {"Average Loss", "0%"},
-            {"Compounding Annual Return", "3.337%"},
+            {"Compounding Annual Return", "13.589%"},
             {"Drawdown", "1.600%"},
             {"Expectancy", "0"},
             {"Start Equity", "100000"},
-            {"End Equity", "101666.4"},
-            {"Net Profit", "1.666%"},
-            {"Sharpe Ratio", "0.594"},
-            {"Sortino Ratio", "0.198"},
-            {"Probabilistic Sharpe Ratio", "44.801%"},
+            {"End Equity", "106624.8"},
+            {"Net Profit", "6.625%"},
+            {"Sharpe Ratio", "1.696"},
+            {"Sortino Ratio", "1.497"},
+            {"Probabilistic Sharpe Ratio", "77.443%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
-            {"Alpha", "-0.013"},
-            {"Beta", "0.134"},
-            {"Annual Standard Deviation", "0.027"},
-            {"Annual Variance", "0.001"},
-            {"Information Ratio", "-2.69"},
-            {"Tracking Error", "0.075"},
-            {"Treynor Ratio", "0.119"},
+            {"Alpha", "0.049"},
+            {"Beta", "0.171"},
+            {"Annual Standard Deviation", "0.051"},
+            {"Annual Variance", "0.003"},
+            {"Information Ratio", "-1.571"},
+            {"Tracking Error", "0.084"},
+            {"Treynor Ratio", "0.504"},
             {"Total Fees", "$6.45"},
-            {"Estimated Strategy Capacity", "$8000000000.00"},
+            {"Estimated Strategy Capacity", "$2900000000.00"},
             {"Lowest Capacity Asset", "ES VMKLFZIH2MTD"},
-            {"Portfolio Turnover", "1.39%"},
-            {"OrderListHash", "40c1137e0bc83b2bc920495af119c8fc"}
+            {"Portfolio Turnover", "1.84%"},
+            {"Drawdown Recovery", "19"},
+            {"OrderListHash", "93ec1ff41936971c765cd3a1e3613f09"}
         };
     }
 }

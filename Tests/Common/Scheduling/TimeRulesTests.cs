@@ -17,6 +17,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NodaTime;
 using NUnit.Framework;
 using Python.Runtime;
@@ -161,12 +162,14 @@ namespace QuantConnect.Tests.Common.Scheduling
             });
 
             var expectedMarketOpenDates = new[] {
-                new DateTime(2022, 01, 02, 23, 0, 0),
-                new DateTime(2022, 01, 03, 23, 0, 0),
-                new DateTime(2022, 01, 04, 23, 0, 0),
-                new DateTime(2022, 01, 05, 23, 0, 0),
-                new DateTime(2022, 01, 06, 23, 0, 0),
-                new DateTime(2022, 01, 09, 23, 0, 0)
+                new DateTime(2022, 01, 02, 23, 0, 0), // sunday 6pm
+                // market is open for the whole day, so goes from midnight to midnight
+                new DateTime(2022, 01, 03, 5, 0, 0),
+                new DateTime(2022, 01, 04, 5, 0, 0),
+                new DateTime(2022, 01, 05, 5, 0, 0),
+                new DateTime(2022, 01, 06, 5, 0, 0),
+                new DateTime(2022, 01, 07, 5, 0, 0),
+                new DateTime(2022, 01, 09, 23, 0, 0) // sunday 6pm
             };
             int count = 0;
             foreach (var time in times)
@@ -174,7 +177,26 @@ namespace QuantConnect.Tests.Common.Scheduling
                 Assert.AreEqual(expectedMarketOpenDates[count], time);
                 count++;
             }
-            Assert.AreEqual(6, count);
+            Assert.AreEqual(7, count);
+        }
+
+        [TestCase(true, 9 - 0.5)]
+        [TestCase(false, 14.5 - 0.5)]
+        public void BeforeMarketOpenWithDelta(bool extendedMarketHours, double expectedHour)
+        {
+            var rules = GetTimeRules(TimeZones.Utc);
+            var rule = rules.BeforeMarketOpen(Symbols.SPY, 30, extendedMarketHours);
+            var times = rule.CreateUtcEventTimes(new[] { new DateTime(2000, 01, 03) });
+            var type = extendedMarketHours ? "ExtendedMarketOpen" : "MarketOpen";
+            Assert.AreEqual($"{Symbols.SPY}: 30 min before {type}", rule.Name);
+
+            int count = 0;
+            foreach (var time in times)
+            {
+                count++;
+                Assert.AreEqual(TimeSpan.FromHours(expectedHour), time.TimeOfDay);
+            }
+            Assert.AreEqual(1, count);
         }
 
         [Test]
@@ -222,6 +244,56 @@ namespace QuantConnect.Tests.Common.Scheduling
             {
                 count++;
                 Assert.AreEqual(TimeSpan.FromHours(4 + 5 + .5), time.TimeOfDay);
+            }
+            Assert.AreEqual(1, count);
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void MultipleMarketOpen(bool extendedMarketHours)
+        {
+            var symbol = Symbols.CreateFutureSymbol("HSI", new DateTime(2025, 01, 27));
+            var rules = GetTimeRules(TimeZones.Utc);
+            var rule = rules.AfterMarketOpen(symbol, extendedMarketOpen: extendedMarketHours);
+            var times = rule.CreateUtcEventTimes(new[] { new DateTime(2000, 01, 04) });
+
+            int count = 0;
+            foreach (var time in times)
+            {
+                count++;
+                if (extendedMarketHours)
+                {
+                    Assert.AreEqual(TimeSpan.FromHours(24 - 8), time.TimeOfDay);
+                }
+                else
+                {
+                    Assert.AreEqual(TimeSpan.FromHours(9.25 - 8), time.TimeOfDay);
+                }
+            }
+            Assert.AreEqual(1, count);
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void MultipleMarketClosure(bool extendedMarketHours)
+        {
+            var symbol = Symbols.CreateFutureSymbol("HSI", new DateTime(2025, 01, 27));
+            var rules = GetTimeRules(TimeZones.Utc);
+            var rule = rules.BeforeMarketClose(symbol, extendedMarketClose: extendedMarketHours);
+            var times = rule.CreateUtcEventTimes(new[] { new DateTime(2000, 01, 03) });
+
+            int count = 0;
+            foreach (var time in times)
+            {
+                count++;
+                if (extendedMarketHours)
+                {
+                    Assert.AreEqual(TimeSpan.FromHours(24 - 8), time.TimeOfDay);
+                }
+                else
+                {
+                    Assert.AreEqual(TimeSpan.FromHours(16.5 - 8), time.TimeOfDay);
+                }
             }
             Assert.AreEqual(1, count);
         }
@@ -288,6 +360,276 @@ namespace QuantConnect.Tests.Common.Scheduling
                 Assert.AreEqual(TimeSpan.FromHours((20 + 5 - .5) % 24), time.TimeOfDay);
             }
             Assert.AreEqual(1, count);
+        }
+
+        [TestCase(true, (21 + 4 + .5) % 24)]
+        [TestCase(false, (21 + .5) % 24)]
+        public void AfterMarketCloseWithDelta(bool extendedMarketHours, double expectedHour)
+        {
+            var rules = GetTimeRules(TimeZones.Utc);
+            var rule = rules.AfterMarketClose(Symbols.SPY, 30, extendedMarketHours);
+            var times = rule.CreateUtcEventTimes(new[] { new DateTime(2000, 01, 03) });
+            var type = extendedMarketHours ? "ExtendedMarketClose" : "MarketClose";
+            Assert.AreEqual($"{Symbols.SPY}: 30 min after {type}", rule.Name);
+
+            int count = 0;
+            foreach (var time in times)
+            {
+                count++;
+                Assert.AreEqual(TimeSpan.FromHours(expectedHour), time.TimeOfDay);
+            }
+            Assert.AreEqual(1, count);
+        }
+
+        [Test]
+        public void NoSymbolMarketOpenDefaultsToSpyWhenNoSecurities()
+        {
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            var rule = rules.AfterMarketOpen(30);
+            var times = rule.CreateUtcEventTimes([new DateTime(2000, 01, 03)]);
+
+            int count = 0;
+            foreach (var time in times)
+            {
+                count++;
+                Assert.AreEqual(TimeSpan.FromHours(9.5 + 5 + .5), time.TimeOfDay);
+            }
+            Assert.AreEqual(1, count);
+        }
+
+        [Test]
+        public void NoSymbolMarketCloseDefaultsToSpyWhenNoSecurities()
+        {
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            var rule = rules.BeforeMarketClose(30);
+            var times = rule.CreateUtcEventTimes([new DateTime(2000, 01, 03)]);
+
+            int count = 0;
+            foreach (var time in times)
+            {
+                count++;
+                Assert.AreEqual(TimeSpan.FromHours(16 + 5 - .5), time.TimeOfDay);
+            }
+            Assert.AreEqual(1, count);
+        }
+
+        [Test]
+        public void NoSymbolMarketOpenIgnoresAlwaysOpenAndUsesSpy()
+        {
+            // Only an always-open (24/7) security is subscribed: it should be skipped and SPY used as fallback.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddAlwaysOpenSecurity(rules);
+
+            var rule = rules.AfterMarketOpen();
+            var times = rule.CreateUtcEventTimes([new DateTime(2000, 01, 03)]);
+
+            int count = 0;
+            foreach (var time in times)
+            {
+                count++;
+                Assert.AreEqual(TimeSpan.FromHours(9.5 + 5), time.TimeOfDay);
+            }
+            Assert.AreEqual(1, count);
+        }
+
+        [Test]
+        public void NoSymbolMarketOpenWithEquityAndExtendedFuturePicksFuture()
+        {
+            // SPY extended opens at 4:00 NY = 9:00 UTC; ES Future extended opens at 0:00 NY = 5:00 UTC. ES wins.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.ES_Future_Chain, extendedMarketHours: true);
+
+            var rule = rules.AfterMarketOpen(0, extendedMarketOpen: true);
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 03, 5, 0, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketCloseWithEquityAndExtendedFuturePicksFuture()
+        {
+            // SPY extended closes at 20:00 NY = 01:00 UTC next day; ES Future extended closes at 24:00 NY = 5:00 UTC next day. ES wins.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.ES_Future_Chain, extendedMarketHours: true);
+
+            var rule = rules.BeforeMarketClose(0, extendedMarketClose: true);
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 04, 5, 0, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketOpenWithEquityAndForexPicksForex()
+        {
+            // EURUSD (Oanda) on Mon Jan 3, 2022 first daily open is 0:00 NY = 5:00 UTC; SPY regular opens 9:30 NY = 14:30 UTC. Forex wins.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.EURUSD);
+
+            var rule = rules.AfterMarketOpen();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 03, 5, 0, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketCloseWithEquityAndForexPicksForex()
+        {
+            // EURUSD last daily close on Mon Jan 3, 2022 is 24:00 NY = 5:00 UTC next day; SPY regular closes 16:00 NY = 21:00 UTC. Forex wins.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.EURUSD);
+
+            var rule = rules.BeforeMarketClose();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 04, 5, 0, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketOpenWithEquityAndCfdPicksCfd()
+        {
+            // XAUUSD (Oanda CFD) Mon first daily open is 0:00 NY = 5:00 UTC; SPY regular opens 14:30 UTC. CFD wins.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.XAUUSD);
+
+            var rule = rules.AfterMarketOpen();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 03, 5, 0, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketCloseWithEquityAndCfdPicksCfd()
+        {
+            // XAUUSD last daily close on Mon is 24:00 NY = 5:00 UTC next day; SPY regular closes 21:00 UTC. CFD wins.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.XAUUSD);
+
+            var rule = rules.BeforeMarketClose();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 04, 5, 0, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketOpenWithEquityAndRegularFutureMatchesEquity()
+        {
+            // SPY and ES regular sessions both open at 9:30 NY = 14:30 UTC on Mon Jan 3, 2022.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.ES_Future_Chain);
+
+            var rule = rules.AfterMarketOpen();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 03, 14, 30, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketCloseWithEquityAndRegularFuturePicksFuture()
+        {
+            // SPY regular closes 16:00 NY = 21:00 UTC; ES regular closes 17:00 NY = 22:00 UTC. ES wins.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.ES_Future_Chain);
+
+            var rule = rules.BeforeMarketClose();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 03, 22, 0, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketOpenWithEquityAndEquityOptionMatches()
+        {
+            // SPY equity and SPY options share regular hours: 9:30 NY = 14:30 UTC.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.SPY_Option_Chain);
+
+            var rule = rules.AfterMarketOpen();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 03, 14, 30, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketCloseWithEquityAndEquityOptionMatches()
+        {
+            // SPY equity and SPY options share regular close: 16:00 NY = 21:00 UTC.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbols.SPY_Option_Chain);
+
+            var rule = rules.BeforeMarketClose();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 03, 21, 0, 0), times[0]);
+        }
+
+        [Test]
+        public void NoSymbolMarketOpenWithEquityAndIndexOptionMatches()
+        {
+            // SPX index option regular opens 8:30 CT = 14:30 UTC, same as SPY equity 14:30 UTC.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbol.CreateCanonicalOption(Symbols.SPX));
+
+            var rule = rules.AfterMarketOpen();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 03, 14, 30, 0), times[0]);
+        }
+
+        [Test]
+        public void GetMarketOpenCloseExchangeHoursDedupesOptionContracts()
+        {
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            var expiry = new DateTime(2024, 01, 19);
+            for (var strike = 100; strike < 110; strike++)
+            {
+                var contract = Symbol.CreateOption(Symbols.SPY, Market.USA, OptionStyle.American,
+                    OptionRight.Call, strike, expiry);
+                AddSecurity(rules, contract);
+            }
+
+            var method = typeof(BaseScheduleRules).GetMethod("GetMarketOpenCloseExchangeHours",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            var hours = ((IEnumerable<SecurityExchangeHours>)method.Invoke(rules, null)).ToList();
+
+            // Expected 2: SPY equity hours (pre-seeded fallback) + SPY option hours (10 contracts deduped to one).
+            Assert.AreEqual(2, hours.Count);
+        }
+
+        [Test]
+        public void NoSymbolMarketCloseWithEquityAndIndexOptionPicksIndexOption()
+        {
+            // SPY regular closes 16:00 NY = 21:00 UTC; SPX index option closes 15:15 CT = 21:15 UTC. SPX wins.
+            var rules = GetEmptyTimeRules(TimeZones.Utc);
+            AddSecurity(rules, Symbols.SPY);
+            AddSecurity(rules, Symbol.CreateCanonicalOption(Symbols.SPX));
+
+            var rule = rules.BeforeMarketClose();
+            var times = rule.CreateUtcEventTimes([new DateTime(2022, 01, 03)]).ToList();
+
+            Assert.AreEqual(1, times.Count);
+            Assert.AreEqual(new DateTime(2022, 01, 03, 21, 15, 0), times[0]);
         }
 
         [TestCase(0)]
@@ -382,6 +724,42 @@ wrongCustomTimeRule = ""hello""
             }
         }
 
+        private static TimeRules GetEmptyTimeRules(DateTimeZone dateTimeZone)
+        {
+            var timeKeeper = new TimeKeeper(_utcNow, new List<DateTimeZone>());
+            var manager = new SecurityManager(timeKeeper);
+            var mhdb = MarketHoursDatabase.FromDataFolder();
+            return new TimeRules(null, manager, dateTimeZone, mhdb);
+        }
+
+        private static SecurityManager GetSecurityManager(TimeRules rules)
+        {
+            var prop = typeof(BaseScheduleRules).GetProperty("Securities", BindingFlags.NonPublic | BindingFlags.Instance);
+            return (SecurityManager)prop.GetValue(rules);
+        }
+
+        private static void AddSecurity(TimeRules rules, Symbol symbol, bool extendedMarketHours = false)
+        {
+            var manager = GetSecurityManager(rules);
+            var mhdb = MarketHoursDatabase.FromDataFolder();
+            var entry = mhdb.GetEntry(symbol.ID.Market, symbol, symbol.SecurityType);
+            var config = new SubscriptionDataConfig(typeof(TradeBar), symbol, Resolution.Daily,
+                entry.DataTimeZone, entry.ExchangeHours.TimeZone, true, extendedMarketHours, false);
+            manager.Add(symbol, new Security(
+                entry.ExchangeHours,
+                config,
+                new Cash(Currencies.USD, 0, 1m),
+                SymbolProperties.GetDefault(Currencies.USD),
+                ErrorCurrencyConverter.Instance,
+                RegisteredSecurityDataTypesProvider.Null,
+                new SecurityCache()));
+        }
+
+        private static void AddAlwaysOpenSecurity(TimeRules rules)
+        {
+            AddSecurity(rules, Symbols.BTCUSD);
+        }
+
         private static TimeRules GetTimeRules(DateTimeZone dateTimeZone)
         {
             var timeKeeper = new TimeKeeper(_utcNow, new List<DateTimeZone>());
@@ -402,7 +780,7 @@ wrongCustomTimeRule = ""hello""
                     new SecurityCache()
                 )
             );
-            var rules = new TimeRules(manager, dateTimeZone, mhdb);
+            var rules = new TimeRules(null, manager, dateTimeZone, mhdb);
             return rules;
         }
 
@@ -427,7 +805,7 @@ wrongCustomTimeRule = ""hello""
                     new SecurityCache()
                 )
             );
-            var rules = new TimeRules(manager, dateTimeZone, mhdb);
+            var rules = new TimeRules(null, manager, dateTimeZone, mhdb);
             return rules;
         }
     }

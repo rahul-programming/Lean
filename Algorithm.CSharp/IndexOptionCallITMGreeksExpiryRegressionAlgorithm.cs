@@ -45,7 +45,7 @@ namespace QuantConnect.Algorithm.CSharp
             _spx = spx.Symbol;
 
             // Select an index option expiring ITM, and adds it to the algorithm.
-            _spxOption = AddIndexOptionContract(OptionChainProvider.GetOptionContractList(_spx, Time)
+            _spxOption = AddIndexOptionContract(OptionChain(_spx)
                 .Where(x => x.ID.StrikePrice <= 3200m && x.ID.OptionRight == OptionRight.Call && x.ID.Date.Year == 2021 && x.ID.Date.Month == 1)
                 .OrderByDescending(x => x.ID.StrikePrice)
                 .Take(1)
@@ -84,7 +84,6 @@ namespace QuantConnect.Algorithm.CSharp
 
             var deltas = slice.OptionChains.Values.OrderByDescending(y => y.Contracts.Values.Sum(x => x.Volume)).First().Contracts.Values.Select(x => x.Greeks.Delta).ToList();
             var gammas = slice.OptionChains.Values.OrderByDescending(y => y.Contracts.Values.Sum(x => x.Volume)).First().Contracts.Values.Select(x => x.Greeks.Gamma).ToList();
-            var lambda = slice.OptionChains.Values.OrderByDescending(y => y.Contracts.Values.Sum(x => x.Volume)).First().Contracts.Values.Select(x => x.Greeks.Lambda).ToList();
             var rho = slice.OptionChains.Values.OrderByDescending(y => y.Contracts.Values.Sum(x => x.Volume)).First().Contracts.Values.Select(x => x.Greeks.Rho).ToList();
             var theta = slice.OptionChains.Values.OrderByDescending(y => y.Contracts.Values.Sum(x => x.Volume)).First().Contracts.Values.Select(x => x.Greeks.Theta).ToList();
             var impliedVol = slice.OptionChains.Values.OrderByDescending(y => y.Contracts.Values.Sum(x => x.Volume)).First().Contracts.Values.Select(x => x.ImpliedVolatility).ToList();
@@ -101,10 +100,6 @@ namespace QuantConnect.Algorithm.CSharp
             if (gammas.Any(g => deltas.Any() && deltas[0] == 1 ? g != 0 : g == 0))
             {
                 throw new AggregateException("Option contract Gamma was equal to zero");
-            }
-            if (lambda.Any(l => l == 0))
-            {
-                throw new AggregateException("Option contract Lambda was equal to zero");
             }
             if (rho.Any(r => r == 0))
             {
@@ -156,12 +151,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 19908;
+        public long DataPoints => 19909;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -174,8 +169,8 @@ namespace QuantConnect.Algorithm.CSharp
         public Dictionary<string, string> ExpectedStatistics => new Dictionary<string, string>
         {
             {"Total Orders", "2"},
-            {"Average Win", "0%"},
-            {"Average Loss", "-54.58%"},
+            {"Average Win", "4.97%"},
+            {"Average Loss", "0%"},
             {"Compounding Annual Return", "99.378%"},
             {"Drawdown", "7.600%"},
             {"Expectancy", "0"},
@@ -184,7 +179,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "4.974%"},
             {"Sharpe Ratio", "5.19"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "89.439%"},
+            {"Probabilistic Sharpe Ratio", "89.294%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
@@ -197,9 +192,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "-8.141"},
             {"Total Fees", "$0.00"},
             {"Estimated Strategy Capacity", "$59000000.00"},
-            {"Lowest Capacity Asset", "SPX XL80P3GHDZXQ|SPX 31"},
+            {"Lowest Capacity Asset", "SPX XL80P3GHIA9A|SPX 31"},
             {"Portfolio Turnover", "2.19%"},
-            {"OrderListHash", "025b99be4e9008421548aa498fece11e"}
+            {"Drawdown Recovery", "9"},
+            {"OrderListHash", "5b8ec5478b149dc9adfb09ea6407af82"}
         };
     }
 }

@@ -48,7 +48,7 @@ namespace QuantConnect.Algorithm.CSharp
             _optionSymbol = option.Symbol;
 
             // set our strike/expiry filter for this option chain
-            option.SetFilter(u => u.Strikes(-2, +2)
+            option.SetFilter(u => u.StandardsOnly().Strikes(-2, +2)
                                    // Expiration method accepts TimeSpan objects or integer for days.
                                    // The following statements yield the same filtering criteria
                                    .Expiration(0, 180));
@@ -109,7 +109,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 32351;
+        public long DataPoints => 9504;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -129,7 +129,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "5"},
             {"Average Win", "0%"},
             {"Average Loss", "-0.07%"},
-            {"Compounding Annual Return", "-12.496%"},
+            {"Compounding Annual Return", "-11.517%"},
             {"Drawdown", "0.200%"},
             {"Expectancy", "-1"},
             {"Start Equity", "100000"},
@@ -150,9 +150,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "1.434"},
             {"Total Fees", "$4.00"},
             {"Estimated Strategy Capacity", "$1000.00"},
-            {"Lowest Capacity Asset", "AAPL 2ZTXYMUAHCIAU|AAPL R735QTJ8XC9X"},
+            {"Lowest Capacity Asset", "AAPL 2ZTXYMUAHGSME|AAPL R735QTJ8XC9X"},
             {"Portfolio Turnover", "2.28%"},
-            {"OrderListHash", "7804b3dcf20d3096a2265a289fa81cd3"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "70bbc60c969f18e943e8e00cf0f7a0ea"}
         };
     }
 }

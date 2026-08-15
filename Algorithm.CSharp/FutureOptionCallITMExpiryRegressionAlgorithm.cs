@@ -53,7 +53,7 @@ namespace QuantConnect.Algorithm.CSharp
                 Resolution.Minute).Symbol;
 
             // Select a future option expiring ITM, and adds it to the algorithm.
-            _esOption = AddFutureOptionContract(OptionChainProvider.GetOptionContractList(_es19m20, Time)
+            _esOption = AddFutureOptionContract(OptionChain(_es19m20)
                 .Where(x => x.ID.StrikePrice <= 3200m && x.ID.OptionRight == OptionRight.Call)
                 .OrderByDescending(x => x.ID.StrikePrice)
                 .Take(1)
@@ -200,12 +200,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 212195;
+        public long DataPoints => 212198;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -228,7 +228,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "-4.676%"},
             {"Sharpe Ratio", "-1.163"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "0.165%"},
+            {"Probabilistic Sharpe Ratio", "0.018%"},
             {"Loss Rate", "50%"},
             {"Win Rate", "50%"},
             {"Profit-Loss Ratio", "0.34"},
@@ -238,12 +238,13 @@ namespace QuantConnect.Algorithm.CSharp
             {"Annual Variance", "0.004"},
             {"Information Ratio", "-0.226"},
             {"Tracking Error", "0.378"},
-            {"Treynor Ratio", "-21.838"},
+            {"Treynor Ratio", "-21.841"},
             {"Total Fees", "$1.42"},
             {"Estimated Strategy Capacity", "$120000000.00"},
-            {"Lowest Capacity Asset", "ES XFH59UPBIJ7O|ES XFH59UK0MYO1"},
+            {"Lowest Capacity Asset", "ES XFH59UPBMTJ8|ES XFH59UK0MYO1"},
             {"Portfolio Turnover", "1.94%"},
-            {"OrderListHash", "b1fa09f62b683f53ab91030371dc87f4"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "a7d2aa89bb101a77fdbc04890235f83c"}
         };
     }
 }

@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from AlgorithmImports import *
 
 ### <summary>
@@ -23,57 +24,54 @@ from AlgorithmImports import *
 ### <meta name="tag" content="regression test" />
 class CustomDataPropertiesRegressionAlgorithm(QCAlgorithm):
 
-    def initialize(self):
-        self.set_start_date(2011,9,13)   # Set Start Date
-        self.set_end_date(2015,12,1)     # Set End Date
-        self.set_cash(100000)           # Set Strategy Cash
+    def initialize(self) -> None:
+        self.set_start_date(2018, 4, 5)   # Set Start Date
+        self.set_end_date(2018, 4, 10)    # Set End Date
+        self.set_cash(100000)             # Set Strategy Cash
 
         # Define our custom data properties and exchange hours
-        self.ticker = 'BTC'
-        properties = SymbolProperties("Bitcoin", "USD", 1, 0.01, 0.01, self.ticker)
+        ticker = 'BTC'
+        properties = SymbolProperties("Bitcoin", "USD", 1, 0.01, 0.01, ticker)
         exchange_hours = SecurityExchangeHours.always_open(TimeZones.NEW_YORK)
 
         # Add the custom data to our algorithm with our custom properties and exchange hours
-        self.bitcoin = self.add_data(Bitcoin, self.ticker, properties, exchange_hours, leverage=1, fill_forward=False)
+        self._bitcoin = self.add_data(Bitcoin, ticker, properties, exchange_hours, leverage=1, fill_forward=False)
 
         # Verify our symbol properties were changed and loaded into this security
-        if self.bitcoin.symbol_properties != properties :
-            raise Exception("Failed to set and retrieve custom SymbolProperties for BTC")
+        if self._bitcoin.symbol_properties != properties :
+            raise AssertionError("Failed to set and retrieve custom SymbolProperties for BTC")
 
         # Verify our exchange hours were changed and loaded into this security
-        if self.bitcoin.exchange.hours != exchange_hours :
-            raise Exception("Failed to set and retrieve custom ExchangeHours for BTC")
+        if self._bitcoin.exchange.hours != exchange_hours :
+            raise AssertionError("Failed to set and retrieve custom ExchangeHours for BTC")
 
         # For regression purposes on AddData overloads, this call is simply to ensure Lean can accept this
         # with default params and is not routed to a breaking function.
         self.add_data(Bitcoin, "BTCUSD")
 
-
-    def on_data(self, data):
+    def on_data(self, data: Slice) -> None:
         if not self.portfolio.invested:
             if data['BTC'].close != 0 :
                 self.order('BTC', self.portfolio.margin_remaining/abs(data['BTC'].close + 1))
 
-    def on_end_of_algorithm(self):
+    def on_end_of_algorithm(self) -> None:
         #Reset our Symbol property value, for testing purposes.
-        self.symbol_properties_database.set_entry(Market.USA, self.market_hours_database.get_database_symbol_key(self.bitcoin.symbol), SecurityType.BASE,
+        self.symbol_properties_database.set_entry(Market.USA, self.market_hours_database.get_database_symbol_key(self._bitcoin.symbol), SecurityType.BASE,
             SymbolProperties.get_default("USD"))
-
 
 
 class Bitcoin(PythonData):
     '''Custom Data Type: Bitcoin data from Quandl - http://www.quandl.com/help/api-for-bitcoin-data'''
 
-    def get_source(self, config, date, is_live_mode):
+    def get_source(self, config: SubscriptionDataConfig, date: datetime, is_live_mode: bool) -> SubscriptionDataSource:
         if is_live_mode:
             return SubscriptionDataSource("https://www.bitstamp.net/api/ticker/", SubscriptionTransportMedium.REST)
 
-        #return "http://my-ftp-server.com/futures-data-" + date.to_string("Ymd") + ".zip"
-        # OR simply return a fixed small data file. Large files will slow down your backtest
-        return SubscriptionDataSource("https://www.quantconnect.com/api/v2/proxy/quandl/api/v3/datasets/BCHARTS/BITSTAMPUSD.csv?order=asc&api_key=WyAazVXnq7ATy_fefTqm", SubscriptionTransportMedium.REMOTE_FILE)
+        # Read from a local data file so the test is deterministic instead of depending on a remote source
+        source = f"{Globals.data_folder}/crypto/coinbase/daily/btcusd_trade.zip"
+        return SubscriptionDataSource(source, SubscriptionTransportMedium.LOCAL_FILE, FileFormat.CSV)
 
-
-    def reader(self, config, line, date, is_live_mode):
+    def reader(self, config: SubscriptionDataConfig, line: str, date: datetime, is_live_mode: bool) -> DynamicData:
         coin = Bitcoin()
         coin.symbol = config.symbol
 
@@ -85,7 +83,7 @@ class Bitcoin(PythonData):
 
                 # If value is zero, return None
                 value = live_btc["last"]
-                if value == 0: return None
+                if value == 0: return coin
 
                 coin.time = datetime.now()
                 coin.value = value
@@ -100,27 +98,23 @@ class Bitcoin(PythonData):
                 return coin
             except ValueError:
                 # Do nothing, possible error in json decoding
-                return None
+                return coin
 
         # Example Line Format:
-        # Date      Open   High    Low     Close   Volume (BTC)    Volume (Currency)   Weighted Price
-        # 2011-09-13 5.8    6.0     5.65    5.97    58.37138238,    346.0973893944      5.929230648356
-        if not (line.strip() and line[0].isdigit()): return None
-
+        # date            open     high     low      close    volume
+        # 20180405 00:00  6791.68  6933.11  6568.64  6785.85  13832.668772
         try:
             data = line.split(',')
-            coin.time = datetime.strptime(data[0], "%Y-%m-%d")
-            coin.end_time = coin.time + timedelta(days=1)
+            coin.time = datetime.strptime(data[0], "%Y%m%d %H:%M")
+            coin.end_time = coin.time + timedelta(1)
             coin.value = float(data[4])
             coin["Open"] = float(data[1])
             coin["High"] = float(data[2])
             coin["Low"] = float(data[3])
             coin["Close"] = float(data[4])
             coin["VolumeBTC"] = float(data[5])
-            coin["VolumeUSD"] = float(data[6])
-            coin["WeightedPrice"] = float(data[7])
             return coin
 
         except ValueError:
-            # Do nothing, possible error in json decoding
-            return None
+            # Do nothing, skip malformed rows
+            return coin

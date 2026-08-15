@@ -14,6 +14,7 @@
 */
 
 using System.Collections.Generic;
+using QuantConnect.Indicators;
 using QuantConnect.Securities.Option;
 
 namespace QuantConnect.Algorithm.CSharp
@@ -29,8 +30,10 @@ namespace QuantConnect.Algorithm.CSharp
             SetEndDate(2014, 6, 9);
 
             var option = AddOption("AAPL", Resolution.Minute);
-            // BlackSholes model does not support American style options
-            option.PriceModel = OptionPriceModels.BlackScholes();
+            option.SetFilter(u => u.StandardsOnly().Strikes(-1, 1).Expiration(0, 35));
+
+            // QL BlackSholes model does not support American style options
+            option.PriceModel = OptionPriceModels.QuantLib.BlackScholes();
 
             SetWarmup(2, Resolution.Daily);
 
@@ -40,7 +43,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public override long DataPoints => 859451;
+        public override long DataPoints => 15787;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -83,6 +86,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", ""},
             {"Portfolio Turnover", "0%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "d41d8cd98f00b204e9800998ecf8427e"}
         };
     }

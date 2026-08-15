@@ -55,10 +55,10 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 _optionFilterRan = true;
 
-                var expiry = new HashSet<DateTime>(optionContracts.Select(x => x.Underlying.ID.Date)).SingleOrDefault();
-                // Cast to IEnumerable<Symbol> because OptionFilterContract overrides some LINQ operators like `Select` and `Where`
+                var expiry = new HashSet<DateTime>(optionContracts.Select(x => x.Symbol.Underlying.ID.Date)).SingleOrDefault();
+                // Cast to List<Symbol> because OptionFilterContract overrides some LINQ operators like `Select` and `Where`
                 // and cause it to mutate the underlying Symbol collection when using those operators.
-                var symbol = new HashSet<Symbol>(((IEnumerable<Symbol>)optionContracts).Select(x => x.Underlying)).SingleOrDefault();
+                var symbol = new HashSet<Symbol>(((List<Symbol>)optionContracts).Select(x => x.Underlying)).SingleOrDefault();
 
                 if (expiry == null || symbol == null)
                 {
@@ -108,7 +108,7 @@ namespace QuantConnect.Algorithm.CSharp
                 return;
             }
 
-            foreach (var chain in slice.OptionChains.Values)
+            foreach (var chain in slice.OptionChains.Values.OrderBy(x => x.Symbol.Underlying.ID.Date))
             {
                 var futureInvested = false;
                 var optionInvested = false;
@@ -220,7 +220,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 608377;
+        public long DataPoints => 319494;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -240,30 +240,31 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "2"},
             {"Average Win", "0%"},
             {"Average Loss", "0%"},
-            {"Compounding Annual Return", "347.065%"},
-            {"Drawdown", "0.900%"},
+            {"Compounding Annual Return", "430.834%"},
+            {"Drawdown", "4.200%"},
             {"Expectancy", "0"},
             {"Start Equity", "100000"},
-            {"End Equity", "101950.53"},
-            {"Net Profit", "1.951%"},
-            {"Sharpe Ratio", "15.402"},
+            {"End Equity", "102313.03"},
+            {"Net Profit", "2.313%"},
+            {"Sharpe Ratio", "17.721"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "95.977%"},
+            {"Probabilistic Sharpe Ratio", "95.297%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
-            {"Alpha", "1.886"},
-            {"Beta", "1.066"},
-            {"Annual Standard Deviation", "0.155"},
-            {"Annual Variance", "0.024"},
-            {"Information Ratio", "13.528"},
-            {"Tracking Error", "0.142"},
-            {"Treynor Ratio", "2.237"},
+            {"Alpha", "2.663"},
+            {"Beta", "1.264"},
+            {"Annual Standard Deviation", "0.184"},
+            {"Annual Variance", "0.034"},
+            {"Information Ratio", "16.514"},
+            {"Tracking Error", "0.169"},
+            {"Treynor Ratio", "2.574"},
             {"Total Fees", "$3.57"},
-            {"Estimated Strategy Capacity", "$760000.00"},
-            {"Lowest Capacity Asset", "ES XCZJLDQX2SRO|ES XCZJLC9NOB29"},
-            {"Portfolio Turnover", "32.31%"},
-            {"OrderListHash", "7a04f66a30d793bf187c2695781ad3ee"}
+            {"Estimated Strategy Capacity", "$28000000.00"},
+            {"Lowest Capacity Asset", "ES XCZJLCA62LNO|ES XCZJLC9NOB29"},
+            {"Portfolio Turnover", "33.84%"},
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "7c82013ecabca41591e0253a477025dd"}
         };
     }
 }

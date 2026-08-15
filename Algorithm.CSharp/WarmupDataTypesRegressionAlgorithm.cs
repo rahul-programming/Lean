@@ -99,12 +99,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public virtual long DataPoints => 3763;
+        public virtual long DataPoints => 3764;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public virtual int AlgorithmHistoryDataPoints => 41;
+        public virtual int AlgorithmHistoryDataPoints => 5;
 
         /// <summary>
         /// Final status of the algorithm
@@ -142,6 +142,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$3000.00"},
             {"Lowest Capacity Asset", "BTCUSD E3"},
             {"Portfolio Turnover", "9.97%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "98661718a82110916cdeceed756c5d37"}
         };
     }

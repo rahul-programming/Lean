@@ -195,14 +195,19 @@ namespace QuantConnect.Brokerages
             switch (brokerage)
             {
                 case BrokerageName.Default:
-                case BrokerageName.TerminalLink:
                     return new DefaultBrokerageModel(accountType);
+
+                case BrokerageName.TerminalLink:
+                    return new TerminalLinkBrokerageModel(accountType);
 
                 case BrokerageName.Alpaca:
                     return new AlpacaBrokerageModel();
 
                 case BrokerageName.InteractiveBrokersBrokerage:
                     return new InteractiveBrokersBrokerageModel(accountType);
+
+                case BrokerageName.InteractiveBrokersFix:
+                    return new InteractiveBrokersFixModel(accountType);
 
                 case BrokerageName.TradierBrokerage:
                     return new TradierBrokerageModel(accountType);
@@ -278,6 +283,24 @@ namespace QuantConnect.Brokerages
 
                 case BrokerageName.TradeStation:
                     return new TradeStationBrokerageModel(accountType);
+
+                case BrokerageName.CharlesSchwab:
+                    return new CharlesSchwabBrokerageModel(accountType);
+
+                case BrokerageName.Tastytrade:
+                    return new TastytradeBrokerageModel(accountType);
+
+                case BrokerageName.DYDX:
+                    return new dYdXBrokerageModel(accountType);
+
+                case BrokerageName.Webull:
+                    return new WebullBrokerageModel(accountType);
+
+                case BrokerageName.Public:
+                    return new PublicBrokerageModel(accountType);
+
+                case BrokerageName.BloombergFix:
+                    return new BloombergFixBrokerageModel(accountType);
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(brokerage), brokerage, null);
@@ -375,6 +398,21 @@ namespace QuantConnect.Brokerages
 
                 case TradeStationBrokerageModel _:
                     return BrokerageName.TradeStation;
+
+                case CharlesSchwabBrokerageModel:
+                    return BrokerageName.CharlesSchwab;
+
+                case TastytradeBrokerageModel:
+                    return BrokerageName.Tastytrade;
+
+                case WebullBrokerageModel:
+                    return BrokerageName.Webull;
+
+                case PublicBrokerageModel:
+                    return BrokerageName.Public;
+
+                case BloombergFixBrokerageModel _:
+                    return BrokerageName.BloombergFix;
 
                 case DefaultBrokerageModel _:
                     return BrokerageName.Default;

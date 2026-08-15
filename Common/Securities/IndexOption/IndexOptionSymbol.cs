@@ -27,6 +27,7 @@ namespace QuantConnect.Securities.IndexOption
     {
         private static readonly Dictionary<string, string> _nonStandardOptionToIndex = new()
         {
+            { "RUTW", "RUT" },
             { "SPXW", "SPX" },
             { "VIXW", "VIX" },
             { "NDXP", "NDX" },
@@ -39,6 +40,7 @@ namespace QuantConnect.Securities.IndexOption
         private static readonly HashSet<string> _nonStandardIndexOptionTickers = new()
         {
             // Weeklies
+            "RUTW", // PM-Settled. While RUT AM-Settled on 3rd Fridays
             "SPXW",
             "VIXW",
             // PM-Settled
@@ -50,7 +52,7 @@ namespace QuantConnect.Securities.IndexOption
         /// <summary>
         /// Supported index option tickers
         /// </summary>
-        public static readonly HashSet<string> SupportedIndexOptionTickers = new string[] { "SPX", "NDX", "VIX" }
+        public static readonly HashSet<string> SupportedIndexOptionTickers = new string[] { "SPX", "NDX", "VIX", "RUT" }
             .Union(_nonStandardIndexOptionTickers)
             .ToHashSet();
 
@@ -70,14 +72,24 @@ namespace QuantConnect.Securities.IndexOption
             {
                 case "NQX":
                 case "SPXW":
+                case "RUTW":
                     // they have weeklies and monthly contracts
                     // NQX https://www.nasdaq.com/docs/NQXFactSheet.pdf
                     // SPXW https://www.cboe.com/tradable_products/sp_500/spx_weekly_options/specifications/
+                    // RUTW expires every day
                     return FuturesExpiryUtilityFunctions.ThirdFriday(symbol.ID.Date) == symbol.ID.Date;
                 default:
-                    // NDX/SPX/NQX/VIX/VIXW/NDXP are all normal contracts
+                    // NDX/SPX/NQX/VIX/VIXW/NDXP/RUT are all normal contracts
                     return true;
             }
+        }
+
+        /// <summary>
+        /// Returns true if the index option is AM settled
+        /// </summary>
+        public static bool IsAMSettled(Symbol symbol)
+        {
+            return !_nonStandardIndexOptionTickers.Contains(symbol.ID.Symbol.LazyToUpper());
         }
 
         /// <summary>
@@ -103,7 +115,7 @@ namespace QuantConnect.Securities.IndexOption
         /// <returns>Index ticker</returns>
         public static string MapToUnderlying(string indexOption)
         {
-            if(_nonStandardOptionToIndex.TryGetValue(indexOption.LazyToUpper(), out var index))
+            if (_nonStandardOptionToIndex.TryGetValue(indexOption.LazyToUpper(), out var index))
             {
                 return index;
             }
@@ -132,6 +144,7 @@ namespace QuantConnect.Securities.IndexOption
         /// <summary>
         /// Some index options last tradable date is the previous day to the expiration
         /// https://www.cboe.com/tradable_products/vix/vix_options/specifications/
+        /// https://www.cboe.com/tradable_products/ftse_russell/russell_2000_index_options/rut_specifications
         /// </summary>
         private static int GetExpirationOffset(string ticker)
         {
@@ -141,9 +154,10 @@ namespace QuantConnect.Securities.IndexOption
                 case "NDX":
                 case "VIX":
                 case "VIXW":
+                case "RUT":
                     return 1;
                 default:
-                    // SPXW, NQX, NDXP
+                    // SPXW, NQX, NDXP, RUTW
                     return 0;
             }
         }

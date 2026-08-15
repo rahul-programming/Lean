@@ -31,6 +31,7 @@ using System.Linq;
 using QuantConnect.Data;
 using QuantConnect.Indicators;
 using Python.Runtime;
+using QuantConnect.Algorithm.Framework.Portfolio;
 
 namespace QuantConnect.Tests.Algorithm
 {
@@ -1320,6 +1321,60 @@ namespace QuantConnect.Tests.Algorithm
         //    Assert.AreEqual(2500, actual);
         //}
 
+        [TestCaseSource(nameof(SetHoldingReturnsOrderTicketsTestCases))]
+        public void SetHoldingsReturnsOrderTicketsTest(List<Symbol> symbols, bool liquidateExistingHoldings, Dictionary<Symbol, decimal> expectedOrders, string tag)
+        {
+            // Initialize the algorithm and add equities to the portfolio
+            var algo = GetAlgorithm(out _, 1, 0);
+            var appl = algo.AddEquity("AAPL");
+            var spy = algo.AddEquity("SPY");
+            var ibm = algo.AddEquity("IBM");
+
+            // Update prices and set initial holdings for the equities
+            Update(appl, 100);
+            Update(spy, 200);
+            Update(ibm, 300);
+            appl.Holdings.SetHoldings(25, 3);
+            spy.Holdings.SetHoldings(25, 3);
+            ibm.Holdings.SetHoldings(25, 3);
+
+            List<OrderTicket> orderTickets;
+            if (symbols.Count > 1)
+            {
+                // Handle multiple symbols by creating portfolio targets
+                var portfolioTargets = new List<PortfolioTarget>();
+                foreach (var symbol in symbols)
+                {
+                    portfolioTargets.Add(new PortfolioTarget(symbol, 0.5m));
+                }
+                orderTickets = algo.SetHoldings(portfolioTargets, liquidateExistingHoldings, tag: tag);
+            }
+            else
+            {
+                // Handle a single symbol or no symbols
+                if (symbols.Count != 0)
+                {
+                    orderTickets = algo.SetHoldings(symbols.First(), 1, liquidateExistingHoldings, tag: tag);
+                }
+                else
+                {
+                    orderTickets = algo.SetHoldings(new List<PortfolioTarget>(), liquidateExistingHoldings, tag: tag);
+                }
+            }
+
+            // Assert that the number of tickets matches the expected count
+            Assert.AreEqual(expectedOrders.Count, orderTickets.Count);
+
+            // Check each ticket:
+            // 1. Ensure the symbol is in the expectedOrders dictionary.
+            // 2. Verify the quantity matches the expected value for that symbol.
+            foreach (var ticket in orderTickets)
+            {
+                Assert.IsTrue(expectedOrders.ContainsKey(ticket.Symbol));
+                Assert.AreEqual(expectedOrders[ticket.Symbol], ticket.Quantity);
+            }
+        }
+
         [Test]
         public void OrderQuantityConversionTest()
         {
@@ -1332,7 +1387,7 @@ namespace QuantConnect.Tests.Algorithm
             algo.Portfolio.SetCash(150000);
 
             var mock = new Mock<ITransactionHandler>();
-            var request = new Mock<SubmitOrderRequest>(null, null, null, null, null, null, null, null, null, null);
+            var request = new Mock<SubmitOrderRequest>(null, null, null, null, null, null, null, null, null, null, null);
             mock.Setup(m => m.Process(It.IsAny<OrderRequest>())).Returns(new OrderTicket(null, request.Object));
             mock.Setup(m => m.GetOpenOrders(It.IsAny<Func<Order, bool>>())).Returns(new List<Order>());
             algo.Transactions.SetOrderProcessor(mock.Object);
@@ -1422,7 +1477,7 @@ namespace QuantConnect.Tests.Algorithm
             // Setup the transaction handler
             var tickets = new Dictionary<int, OrderTicket>();
             var mock = new Mock<ITransactionHandler>();
-            var request = new Mock<SubmitOrderRequest>(null, null, null, null, null, null, null, null, null, null);
+            var request = new Mock<SubmitOrderRequest>(null, null, null, null, null, null, null, null, null, null, null);
             mock.Setup(m => m.Process(It.IsAny<OrderRequest>())).Returns<OrderRequest>(s =>
             {
                 if (s.OrderRequestType == OrderRequestType.Cancel)
@@ -1501,13 +1556,48 @@ namespace QuantConnect.Tests.Algorithm
             Assert.IsTrue(limitOrderCanceled);
         }
 
+        [TestCase(Language.CSharp, true)]
+        [TestCase(Language.CSharp, false)]
+        [TestCase(Language.Python, true)]
+        [TestCase(Language.Python, false)]
+        public void LiquidateIgnoresSymbolsNotAddedToTheAlgorithm(Language language, bool singleSymbol)
+        {
+            var algo = GetAlgorithm(out _, 1, 0);
+
+            // AAPL was never added to the algorithm
+            List<OrderTicket> liquidatedTickets = null;
+            if (language == Language.CSharp)
+            {
+                if (singleSymbol)
+                {
+                    Assert.DoesNotThrow(() => liquidatedTickets = algo.Liquidate(Symbols.AAPL));
+                }
+                else
+                {
+                    Assert.DoesNotThrow(() => liquidatedTickets = algo.Liquidate(new List<Symbol>() { Symbols.AAPL }));
+                }
+            }
+            else
+            {
+                using (Py.GIL())
+                {
+                    var symbols = singleSymbol
+                        ? Symbols.AAPL.ToPython()
+                        : (new List<Symbol>() { Symbols.AAPL }).ToPython();
+                    Assert.DoesNotThrow(() => liquidatedTickets = algo.Liquidate(symbols));
+                }
+            }
+
+            Assert.IsEmpty(liquidatedTickets);
+        }
+
         [Test]
         public void MarketOrdersAreSupportedForFuturesOnExtendedMarketHours()
         {
             var algo = GetAlgorithm(out _, 1, 0);
 
             var mockOrderProcessor = new Mock<ITransactionHandler>();
-            var mockRequest = new Mock<SubmitOrderRequest>(null, null, null, null, null, null, null, null, null, null);
+            var mockRequest = new Mock<SubmitOrderRequest>(null, null, null, null, null, null, null, null, null, null, null);
             var mockTicket = new OrderTicket(algo.Transactions, mockRequest.Object);
             mockOrderProcessor.Setup(m => m.Process(It.IsAny<OrderRequest>())).Returns(mockTicket);
             mockOrderProcessor.Setup(m => m.GetOrderTicket(It.IsAny<int>())).Returns(mockTicket);
@@ -1820,6 +1910,15 @@ namespace QuantConnect.Tests.Algorithm
             new object[] { Language.CSharp, false, false, null },
             new object[] { Language.CSharp, null, false, null },
             new object[] { Language.Python, null, false, null }
+        };
+        private static object[] SetHoldingReturnsOrderTicketsTestCases =
+        {
+            new object[] { new List<Symbol>(), true, new Dictionary<Symbol, decimal> { { Symbols.AAPL, -3 }, { Symbols.IBM, -3 }, { Symbols.SPY, -3 } }, "(Empty, true)"},
+            new object[] { new List<Symbol>(), false, new Dictionary<Symbol, decimal>(), "(Empty, false)" },
+            new object[] { new List<Symbol>() { Symbols.IBM }, true, new Dictionary<Symbol, decimal> { { Symbols.AAPL, -3m }, { Symbols.IBM, 335m }, { Symbols.SPY, -3m } }, "(OneSymbol, true)" },
+            new object[] { new List<Symbol>() { Symbols.IBM }, false, new Dictionary<Symbol, decimal> { { Symbols.IBM, 335m } }, "(OneSymbol, true)" },
+            new object[] { new List<Symbol>() { Symbols.AAPL, Symbols.SPY }, true, new Dictionary<Symbol, decimal> { { Symbols.AAPL, 504m }, { Symbols.IBM, -3m }, { Symbols.SPY, 250m } }, "(MultipleSymbols, true)" },
+            new object[] { new List<Symbol>() { Symbols.AAPL, Symbols.SPY }, false, new Dictionary<Symbol, decimal> { { Symbols.AAPL, 504m }, { Symbols.SPY, 250m } }, "(MultipleSymbols, false)" },
         };
     }
 }

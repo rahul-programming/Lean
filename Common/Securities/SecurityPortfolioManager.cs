@@ -32,10 +32,11 @@ namespace QuantConnect.Securities
     /// Portfolio manager class groups popular properties and makes them accessible through one interface.
     /// It also provide indexing by the vehicle symbol to get the Security.Holding objects.
     /// </summary>
-    public class SecurityPortfolioManager : ExtendedDictionary<SecurityHolding>, IDictionary<Symbol, SecurityHolding>, ISecurityProvider
+    public class SecurityPortfolioManager : ExtendedDictionary<Symbol, SecurityHolding>, IDictionary<Symbol, SecurityHolding>, ISecurityProvider
     {
         private Cash _baseCurrencyCash;
         private bool _setCashWasCalled;
+        private bool _baseCashSymbolSetExplicitly;
         private decimal _totalPortfolioValue;
         private bool _isTotalPortfolioValueValid;
         private object _totalPortfolioValueLock = new();
@@ -169,7 +170,7 @@ namespace QuantConnect.Securities
         /// </summary>
         /// <param name="symbol">String search symbol for the security</param>
         /// <returns>Boolean true if portfolio contains this symbol</returns>
-        public bool ContainsKey(Symbol symbol)
+        public override bool ContainsKey(Symbol symbol)
         {
             return Securities.ContainsKey(symbol);
         }
@@ -189,7 +190,7 @@ namespace QuantConnect.Securities
         /// Count the securities objects in the portfolio.
         /// </summary>
         /// <remarks>IDictionary implementation calling the underlying Securities collection</remarks>
-        public int Count
+        public override int Count
         {
             get
             {
@@ -228,6 +229,13 @@ namespace QuantConnect.Securities
                 i++;
             }
         }
+
+        /// <summary>
+        /// Gets all the items in the dictionary
+        /// </summary>
+        /// <returns>All the items in the dictionary</returns>
+        public override IEnumerable<KeyValuePair<Symbol, SecurityHolding>> GetItems() =>
+            Securities.GetItems().Select(kvp => KeyValuePair.Create(kvp.Key, kvp.Value.Holdings));
 
         /// <summary>
         /// Gets an <see cref="System.Collections.Generic.ICollection{T}"/> containing the Symbol objects of the <see cref="System.Collections.Generic.IDictionary{TKey, TValue}"/>.
@@ -597,16 +605,27 @@ namespace QuantConnect.Securities
         /// <returns>SecurityHolding class from the algorithm securities</returns>
         public override SecurityHolding this[Symbol symbol]
         {
-            get { return Securities[symbol].Holdings; }
-            set { Securities[symbol].Holdings = value; }
+            get
+            {
+                return Securities[symbol].Holdings;
+            }
+            set
+            {
+                Securities[symbol].Holdings = value;
+            }
         }
 
         /// <summary>
         /// Sets the account currency cash symbol this algorithm is to manage, as well
-        /// as the starting cash in this currency if given
+        /// as the starting cash in this currency if given.
         /// </summary>
-        /// <remarks>Has to be called before calling <see cref="SetCash(decimal)"/>
-        /// or adding any <see cref="Security"/></remarks>
+        /// <remarks>
+        /// Should be called before adding any <see cref="Security"/>. If <see cref="SetCash(string, decimal, decimal)"/>
+        /// was called beforehand, the previous base cash balance is kept in its own
+        /// <see cref="CashBook"/> entry and the new account currency starts at zero. Otherwise the
+        /// previously set amount carries over to the new account currency. If the currency matches,
+        /// <paramref name="startingCash"/> overrides the previous amount.
+        /// </remarks>
         /// <param name="accountCurrency">The account currency cash symbol to set</param>
         /// <param name="startingCash">The account currency starting cash to set</param>
         public void SetAccountCurrency(string accountCurrency, decimal? startingCash = null)
@@ -629,27 +648,42 @@ namespace QuantConnect.Securities
             if (Securities.Count > 0)
             {
                 throw new InvalidOperationException("SecurityPortfolioManager.SetAccountCurrency(): " +
-                    Messages.SecurityPortfolioManager.CannotChangeAccountCurrencyAfterAddingSecurity);
+                    Messages.SecurityPortfolioManager.CannotChangeAccountCurrencyAfterAddingSecurity());
             }
 
-            if (_setCashWasCalled)
-            {
-                throw new InvalidOperationException("SecurityPortfolioManager.SetAccountCurrency(): " +
-                    Messages.SecurityPortfolioManager.CannotChangeAccountCurrencyAfterSettingCash);
-            }
-
-            Log.Trace("SecurityPortfolioManager.SetAccountCurrency(): " +
-                Messages.SecurityPortfolioManager.SettingAccountCurrency(accountCurrency));
+            // Capture the previous base cash and amount if SetCash() was called earlier so we can
+            // either report the leftover balance in the old currency or detect a same-currency override.
+            var previousCash = _setCashWasCalled ? _baseCurrencyCash : null;
+            var previousAmount = previousCash?.Amount;
+            var message = Messages.SecurityPortfolioManager.SettingAccountCurrency(accountCurrency);
 
             UnsettledCashBook.AccountCurrency = accountCurrency;
             CashBook.AccountCurrency = accountCurrency;
 
+            // Repoint the base cash to the new account currency entry.
             _baseCurrencyCash = CashBook[accountCurrency];
+
+            if (_baseCashSymbolSetExplicitly && previousCash != null && previousCash.Symbol != accountCurrency)
+            {
+                // The user committed cash to a specific currency via SetCash(symbol, ...): keep that
+                // balance in its own entry and start the new account currency at zero. Otherwise the
+                // CashBook setter has already migrated the implicit amount to the new currency entry.
+                _baseCurrencyCash.SetAmount(0);
+                CashBook.Add(previousCash.Symbol, previousAmount.Value, previousCash.ConversionRate);
+                message += ". " + Messages.SecurityPortfolioManager.AccountCurrencyChangedAfterSettingCash(previousCash);
+            }
 
             if (startingCash != null)
             {
-                SetCash((decimal)startingCash);
+                SetCash(startingCash.Value);
+                // When the account currency is unchanged, report the override of the prior amount.
+                if (previousCash?.Symbol == accountCurrency && previousAmount != startingCash)
+                {
+                    message = Messages.SecurityPortfolioManager.AccountCurrencyCashUpdated(accountCurrency, previousAmount.Value, startingCash.Value);
+                }
             }
+
+            Log.Trace("SecurityPortfolioManager.SetAccountCurrency(): " + message);
         }
 
         /// <summary>
@@ -659,6 +693,7 @@ namespace QuantConnect.Securities
         public void SetCash(decimal cash)
         {
             _setCashWasCalled = true;
+            _baseCashSymbolSetExplicitly = false;
             _baseCurrencyCash.SetAmount(cash);
         }
 
@@ -671,9 +706,9 @@ namespace QuantConnect.Securities
         public void SetCash(string symbol, decimal cash, decimal conversionRate)
         {
             _setCashWasCalled = true;
-            Cash item;
+            _baseCashSymbolSetExplicitly = true;
             symbol = symbol.LazyToUpper();
-            if (CashBook.TryGetValue(symbol, out item))
+            if (CashBook.TryGetValue(symbol, out var item))
             {
                 item.SetAmount(cash);
                 item.ConversionRate = conversionRate;

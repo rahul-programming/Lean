@@ -13,8 +13,8 @@
  * limitations under the License.
 */
 
-using Python.Runtime;
 using System;
+using Python.Runtime;
 using System.Collections.Generic;
 
 namespace QuantConnect.Python
@@ -22,14 +22,14 @@ namespace QuantConnect.Python
     /// <summary>
     /// Base class for Python wrapper classes
     /// </summary>
-    public class BasePythonWrapper<TInterface> : IEquatable<BasePythonWrapper<TInterface>>
+    public class BasePythonWrapper<TInterface> : IEquatable<BasePythonWrapper<TInterface>>, IDisposable
     {
         private PyObject _instance;
         private object _underlyingClrObject;
         private Dictionary<string, PyObject> _pythonMethods;
         private Dictionary<string, string> _pythonPropertyNames;
 
-        private readonly bool _validateInterface;
+        private bool _validateInterface;
 
         /// <summary>
         /// Gets the underlying python instance
@@ -42,8 +42,6 @@ namespace QuantConnect.Python
         /// <param name="validateInterface">Whether to perform validations for interface implementation</param>
         public BasePythonWrapper(bool validateInterface = true)
         {
-            _pythonMethods = new();
-            _pythonPropertyNames = new();
             _validateInterface = validateInterface;
         }
 
@@ -64,14 +62,34 @@ namespace QuantConnect.Python
         /// <param name="instance">The underlying python instance</param>
         public void SetPythonInstance(PyObject instance)
         {
-            if (_instance != null)
-            {
-                _pythonMethods.Clear();
-                _pythonPropertyNames.Clear();
-            }
+            InitializeContainers();
 
             _instance = _validateInterface ? instance.ValidateImplementationOf<TInterface>() : instance;
             _instance.TryConvert(out _underlyingClrObject);
+        }
+
+        /// <summary>
+        /// Sets the python instance and sets the validate interface flag
+        /// </summary>
+        /// <param name="instance">The underlying python instance</param>
+        /// <param name="validateInterface">Whether to perform validations for interface implementation</param>
+        protected void SetPythonInstance(PyObject instance, bool validateInterface)
+        {
+            _validateInterface = validateInterface;
+            SetPythonInstance(instance);
+        }
+
+        private void InitializeContainers()
+        {
+            if (_pythonMethods != null && _pythonPropertyNames != null)
+            {
+                _pythonMethods.Clear();
+                _pythonPropertyNames.Clear();
+                return;
+            }
+
+            _pythonMethods = new();
+            _pythonPropertyNames = new();
         }
 
         /// <summary>
@@ -130,12 +148,13 @@ namespace QuantConnect.Python
         /// Gets the Python instances method with the specified name and caches it
         /// </summary>
         /// <param name="methodName">The name of the method</param>
+        /// <param name="pythonOnly">Whether to only return python methods</param>
         /// <returns>The matched method</returns>
-        public PyObject GetMethod(string methodName)
+        public PyObject GetMethod(string methodName, bool pythonOnly = false)
         {
             if (!_pythonMethods.TryGetValue(methodName, out var method))
             {
-                method = _instance.GetMethod(methodName);
+                method = pythonOnly ? _instance.GetPythonMethod(methodName) : _instance.GetMethod(methodName);
                 _pythonMethods = AddToDictionary(_pythonMethods, methodName, method);
             }
 
@@ -330,10 +349,53 @@ namespace QuantConnect.Python
             return PythonReferenceComparer.Instance.Equals(_instance, other);
         }
 
+
+        /// <summary>
+        /// Dispose of this instance
+        /// </summary>
+        public virtual void Dispose()
+        {
+            using var _ = Py.GIL();
+            if (_pythonMethods != null)
+            {
+                foreach (var methods in _pythonMethods.Values)
+                {
+                    methods.Dispose();
+                }
+                _pythonMethods.Clear();
+            }
+            _instance?.Dispose();
+        }
+
+        /// <summary>
+        /// Attempts to invoke the method if it has been overridden in Python.
+        /// </summary>
+        /// <typeparam name="T">The expected return type of the Python method.</typeparam>
+        /// <param name="methodName">The name of the method to call on the Python instance.</param>
+        /// <param name="result">When this method returns, contains the method result if the call succeeded.</param>
+        /// <param name="args">The arguments to pass to the Python method.</param>
+        /// <returns>true if the Python method was successfully invoked, otherwise, false.</returns>
+        protected bool TryInvokePythonOverride<T>(string methodName, out T result, params object[] args)
+        {
+
+            if (_instance != null)
+            {
+                var method = GetMethod(methodName, true);
+                if (method != null)
+                {
+                    result = PythonRuntimeChecker.InvokeMethod<T>(method, methodName, args);
+                    return true;
+                }
+            }
+
+            result = default;
+            return false;
+        }
+
         /// <summary>
         /// Set of helper methods to invoke Python methods with runtime checks for return values and out parameter's conversions.
         /// </summary>
-        private class PythonRuntimeChecker
+        public class PythonRuntimeChecker
         {
             /// <summary>
             /// Invokes method <paramref name="method"/> and converts the returned value to type <typeparamref name="TResult"/>

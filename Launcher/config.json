@@ -48,6 +48,20 @@
   "symbol-second-limit": 10000,
   "symbol-tick-limit": 10000,
 
+  // retry lookback periods for automatic security seed history requests
+  "seed-lookback-period": 5,
+  "seed-retry-minute-lookback-period": 1440,
+  "seed-retry-hour-lookback-period": 24,
+  "seed-retry-daily-lookback-period": 10,
+
+  // Ignore unknown asset types from brokerages
+  "ignore-unknown-asset-holdings": true,
+
+  // The maximum amount of transaction threads for concurrent order submissions if the brokerage supports it.
+  // The pool starts at the minimum and grows up to the maximum on demand.
+  //"minimum-transaction-threads": 2,
+  //"maximum-transaction-threads": 10,
+
   // log missing data files, useful for debugging
   "show-missing-data-logs": false,
 
@@ -91,8 +105,8 @@
   "ib-tws-dir": "C:\\Jts",
   "ib-trading-mode": "paper",
   "ib-enable-delayed-streaming-data": false,
-  "ib-version": "974",
   "ib-weekly-restart-utc-time": "22:00:00",
+  "ib-financial-advisors-group-filter": "",
 
   // tradier configuration
   "tradier-environment": "paper",
@@ -134,9 +148,10 @@
   // spot/margin
   "binance-api-url": "https://api.binance.com",
   "binance-websocket-url": "wss://stream.binance.com:9443/ws",
+  "binance-orders-websocket-url": "wss://ws-api.binance.com:9443/ws-api/v3",
   // USDT futures
   "binance-fapi-url": "https://fapi.binance.com",
-  "binance-fwebsocket-url": "wss://fstream.binance.com/ws",
+  "binance-fwebsocket-url": "wss://fstream.binance.com/private/ws",
   // Coin futures
   "binance-dapi-url": "https://dapi.binance.com",
   "binance-dwebsocket-url": "wss://dstream.binance.com/ws",
@@ -154,6 +169,18 @@
   "bybit-api-url": "https://api.bybit.com",
   "bybit-websocket-url": "wss://stream.bybit.com",
 
+  // dydx configuration
+  //"dydx-mnemonic": "",
+  "dydx-private-key-hex": "",
+  "dydx-address": "",
+  "dydx-subaccount-number": 0,
+
+  "dydx-node-api-rest": "https://dydx-ops-rest.kingnodes.com",
+  "dydx-node-api-grpc": "https://dydx-ops-grpc.kingnodes.com:443",
+  "dydx-indexer-api-rest": "https://indexer.dydx.trade/v4",
+  "dydx-indexer-api-wss": "wss://indexer.dydx.trade/v4/ws",
+  "dydx-chain-id": "dydx-mainnet-1",
+
   // Eze configuration
   "eze-api-address-url": "",
   "eze-port": "",
@@ -161,6 +188,8 @@
   "eze-locale": "",
   "eze-password": "",
   "eze-user-name": "",
+  "eze-trading-route": "",
+  "eze-trading-account": "",
 
   // kraken configuration
   "kraken-api-secret": "",
@@ -176,11 +205,6 @@
   "wolverine-on-behalf-of-comp-id": "",
   "wolverine-log-fix-messages": false,
 
-  // TDAmeritrade configuration
-  "tdameritrade-account-number": "",
-  "tdameritrade-api-key": "",
-  "tdameritrade-access-token": "",
-
   // RBI configuration
   "rbi-host": "",
   "rbi-port": "",
@@ -189,6 +213,18 @@
   "rbi-target-comp-id": "",
   "rbi-on-behalf-of-comp-id": "",
   "rbi-log-fix-messages": false,
+
+  // bloomberg fix configuration
+  "bloomberg-fix-host": "",
+  "bloomberg-fix-port": "",
+  "bloomberg-fix-sender-comp-id": "",
+  "bloomberg-fix-target-comp-id": "",
+  "bloomberg-fix-on-behalf-of-comp-id": "",
+  "bloomberg-fix-sender-sub-id": "",
+  "bloomberg-fix-deliver-to-comp-id": "",
+  "bloomberg-fix-log-messages": false,
+  "bloomberg-fix-ssl-certificate-path": "",
+  "bloomberg-fix-ssl-certificate-password": "",
 
   // Trading Technologies configuration
   "tt-user-name": "",
@@ -208,18 +244,50 @@
   "tt-log-fix-messages": false,
 
   // Trade Station configuration
-  "trade-station-api-key": "",
-  "trade-station-api-secret": "",
-  "trade-station-code-from-url": "",
+  "trade-station-client-id": "",
+  "trade-station-client-secret": "",
   "trade-station-redirect-url": "http://localhost",
   "trade-station-refresh-token": "",
   "trade-station-api-url": "https://sim-api.tradestation.com",
   "trade-station-account-type": "Cash|Margin|Futures",
-  // [Optional] Trade Station Proxy Settings
-  "trade-station-use-proxy": false,
-  "trade-station-proxy-address-port": "",
-  "trade-station-proxy-username": "",
-  "trade-station-proxy-password": "",
+  "trade-station-account-id": "",
+
+  // Alpaca configuration
+  "alpaca-api-key": "",
+  "alpaca-api-secret": "",
+  "alpaca-access-token": "",
+  "alpaca-paper-trading": true,
+
+  // Charles Schwab configuration
+  "charles-schwab-api-url": "https://api.schwabapi.com",
+  "charles-schwab-app-key": "",
+  "charles-schwab-secret": "",
+  "charles-schwab-account-number": "",
+  // Case 1 (normal)
+  "charles-schwab-refresh-token": "",
+  // Case 2 (developing)
+  "charles-schwab-authorization-code-from-url": "",
+  "charles-schwab-redirect-url": "",
+
+  // Webull configuration
+  "webull-api-url": "https://api.webull.com",
+  "webull-trade-grpc-url": "https://events-api.webull.com",
+  "webull-app-key": "",
+  "webull-app-secret": "",
+  "webull-account-id": "",
+
+  // Tastytrade configuration
+  "tastytrade-api-url": "",
+  "tastytrade-websocket-url": "",
+  "tastytrade-username": "",
+  "tastytrade-password": "",
+  "tastytrade-account-number": "",
+
+  // Public.com configuration
+  "public-api-url": "https://api.public.com",
+  "public-secret-key": "",
+  // Users can have multiple different accounts
+  "public-account-number": "",
 
   // Exante trading configuration
   // client-id, application-id, shared-key are required to access Exante REST API
@@ -532,6 +600,34 @@
       "history-provider": [ "BrokerageHistoryProvider", "SubscriptionDataReaderHistoryProvider" ]
     },
 
+    "live-trade-station": {
+      "live-mode": true,
+
+      // real brokerage implementations require the BrokerageTransactionHandler
+      "live-mode-brokerage": "TradeStationBrokerage",
+      "data-queue-handler": [ "TradeStationBrokerage" ],
+      "setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
+      "result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
+      "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",
+      "real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
+      "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler",
+      "history-provider": [ "BrokerageHistoryProvider", "SubscriptionDataReaderHistoryProvider" ]
+    },
+
+    "live-alpaca": {
+      "live-mode": true,
+
+      // real brokerage implementations require the BrokerageTransactionHandler
+      "live-mode-brokerage": "AlpacaBrokerage",
+      "data-queue-handler": [ "AlpacaBrokerage" ],
+      "setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
+      "result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
+      "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",
+      "real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
+      "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler",
+      "history-provider": [ "BrokerageHistoryProvider", "SubscriptionDataReaderHistoryProvider" ]
+    },
+
     "live-futures-bybit": {
       "live-mode": true,
 
@@ -632,18 +728,32 @@
       "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler"
     },
 
-    "live-tdameritrade": {
+    "live-charlesschwab": {
       "live-mode": true,
 
       // real brokerage implementations require the BrokerageTransactionHandler
-      "live-mode-brokerage": "TDAmeritradeBrokerage",
-      "history-provider": [ "BrokerageHistoryProvider", "SubscriptionDataReaderHistoryProvider" ],
+      "live-mode-brokerage": "CharlesSchwabBrokerage",
+      "data-queue-handler": [ "CharlesSchwabBrokerage" ],
       "setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
       "result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
       "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",
       "real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
       "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler",
-      "data-queue-handler": [ "TDAmeritradeBrokerage" ]
+      "history-provider": [ "BrokerageHistoryProvider", "SubscriptionDataReaderHistoryProvider" ]
+    },
+
+    "live-tastytrade": {
+      "live-mode": true,
+
+      // real brokerage implementations require the BrokerageTransactionHandler
+      "live-mode-brokerage": "TastytradeBrokerage",
+      "data-queue-handler": [ "TastytradeBrokerage" ],
+      "setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
+      "result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
+      "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",
+      "real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
+      "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler",
+      "history-provider": [ "BrokerageHistoryProvider", "SubscriptionDataReaderHistoryProvider" ]
     },
 
     "live-rbi": {
@@ -660,6 +770,20 @@
       "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler"
     },
 
+    "live-bloomberg-fix": {
+      "live-mode": true,
+
+      // real brokerage implementations require the BrokerageTransactionHandler
+      "live-mode-brokerage": "BloombergFixBrokerage",
+      "data-queue-handler": [ "QuantConnect.Lean.Engine.DataFeeds.Queues.LiveDataQueue" ],
+      "history-provider": [ "SubscriptionDataReaderHistoryProvider" ],
+      "setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
+      "result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
+      "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",
+      "real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
+      "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler"
+    },
+
     // defines the 'live-eze' environment
     "live-eze": {
       "live-mode": true,
@@ -667,6 +791,51 @@
       // real brokerage implementations require the BrokerageTransactionHandler
       "live-mode-brokerage": "QuantConnect.EzeBrokerage.EzeBrokerage",
       "data-queue-handler": [ "QuantConnect.EzeBrokerage.EzeBrokerage" ],
+      "setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
+      "result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
+      "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",
+      "real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
+      "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler",
+      "history-provider": [ "BrokerageHistoryProvider", "SubscriptionDataReaderHistoryProvider" ]
+    },
+
+    // defines the 'live-webull' environment
+    "live-webull": {
+      "live-mode": true,
+
+      // real brokerage implementations require the BrokerageTransactionHandler
+      "live-mode-brokerage": "WebullBrokerage",
+      "data-queue-handler": [ "WebullBrokerage" ],
+      "setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
+      "result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
+      "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",
+      "real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
+      "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler",
+      "history-provider": [ "BrokerageHistoryProvider", "SubscriptionDataReaderHistoryProvider" ]
+    },
+
+    // defines the 'live-public' environment
+    "live-public": {
+      "live-mode": true,
+
+      // real brokerage implementations require the BrokerageTransactionHandler
+      "live-mode-brokerage": "PublicBrokerage",
+      "data-queue-handler": [ "PublicBrokerage" ],
+      "setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
+      "result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
+      "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",
+      "real-time-handler": "QuantConnect.Lean.Engine.RealTime.LiveTradingRealTimeHandler",
+      "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BrokerageTransactionHandler",
+      "history-provider": [ "BrokerageHistoryProvider", "SubscriptionDataReaderHistoryProvider" ]
+    },
+
+    // defines the 'live-dydx' environment
+    "live-dydx": {
+      "live-mode": true,
+
+      // real brokerage implementations require the BrokerageTransactionHandler
+      "live-mode-brokerage": "dYdXBrokerage",
+      "data-queue-handler": [ "dYdXBrokerage" ],
       "setup-handler": "QuantConnect.Lean.Engine.Setup.BrokerageSetupHandler",
       "result-handler": "QuantConnect.Lean.Engine.Results.LiveTradingResultHandler",
       "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.LiveTradingDataFeed",

@@ -45,6 +45,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
         private IDataFeed _dataFeed;
         private AggregationManager _aggregationManager;
         private PaperBrokerage _paperBrokerage;
+        private ITransactionHandler _transactionHandler;
 
         [SetUp]
         public void Setup()
@@ -55,6 +56,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
         [TearDown]
         public void TearDown()
         {
+            _transactionHandler.Exit();
             _dataFeed.Exit();
             _dataManager.RemoveAllSubscriptions();
             _resultHandler.Exit();
@@ -236,9 +238,9 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                             .Any(config => config.IsInternalFeed && config.Resolution == Resolution.Second));
                         first = false;
                     }
-                    else if(_algorithm.Securities["AAPL"].Price != 0 && _algorithm.Securities["IBM"].Price != 0)
+                    else if (_algorithm.Securities["AAPL"].Price != 0 && _algorithm.Securities["IBM"].Price != 0)
                     {
-                        #pragma warning disable CS0618
+#pragma warning disable CS0618
                         _algorithm.SetHoldings("AAPL", 0.01);
                         _algorithm.SetHoldings("IBM", 0.01);
 
@@ -248,7 +250,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                         Assert.AreEqual(OrderStatus.Submitted, orders[0].Status);
 
                         orders = _algorithm.Transactions.GetOpenOrders("IBM");
-                        #pragma warning restore CS0618
+#pragma warning restore CS0618
                         Assert.AreEqual(1, orders.Count);
                         Assert.AreEqual(Symbols.IBM, orders[0].Symbol);
                         Assert.AreEqual(OrderStatus.Submitted, orders[0].Status);
@@ -395,7 +397,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 SymbolPropertiesDatabase.FromDataFolder(),
                 _algorithm,
                 registeredTypesProvider,
-                new SecurityCacheProvider(_algorithm.Portfolio));
+                new SecurityCacheProvider(_algorithm.Portfolio),
+                algorithm: _algorithm);
             var universeSelection = new UniverseSelection(
                 _algorithm,
                 securityService,
@@ -408,7 +411,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 new RegisteredSecurityDataTypesProvider(),
                 new DataPermissionManager());
             _resultHandler = new TestResultHandler();
-            _synchronizer.Initialize(_algorithm, _dataManager);
+            _synchronizer.Initialize(_algorithm, _dataManager, new());
             _dataFeed.Initialize(_algorithm,
                 new LiveNodePacket(),
                 _resultHandler,
@@ -420,11 +423,23 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 new DataChannelProvider());
             _algorithm.SubscriptionManager.SetDataManager(_dataManager);
             _algorithm.Securities.SetSecurityService(securityService);
-            var backtestingTransactionHandler = new BacktestingTransactionHandler();
+            var backtestingTransactionHandler = new SynchronousBacktestingTransactionHandler();
             _paperBrokerage = new PaperBrokerage(_algorithm, new LiveNodePacket());
             backtestingTransactionHandler.Initialize(_algorithm, _paperBrokerage, _resultHandler);
             _algorithm.Transactions.SetOrderProcessor(backtestingTransactionHandler);
+
+            if (_transactionHandler != null)
+            {
+                _transactionHandler.Exit();
+            }
+            _transactionHandler = backtestingTransactionHandler;
         }
+
+        private class SynchronousBacktestingTransactionHandler : BacktestingTransactionHandler
+        {
+            protected override bool SynchronousProcessing => true;
+        }
+
         private class TestAggregationManager : AggregationManager
         {
             public TestAggregationManager(ITimeProvider timeProvider)

@@ -24,6 +24,7 @@ using QuantConnect.Securities.Future;
 using QuantConnect.Securities.FutureOption;
 using static QuantConnect.StringExtensions;
 using System.Text.RegularExpressions;
+using QuantConnect.Securities.IndexOption;
 
 namespace QuantConnect
 {
@@ -33,7 +34,7 @@ namespace QuantConnect
     public static class SymbolRepresentation
     {
         // Define the regex as a private readonly static field and compile it
-        private static readonly Regex _optionTickerRegex = new Regex(@"^([A-Z]+)\s*(\d{6})([CP])(\d{8})$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex _optionTickerRegex = new Regex(@"^([A-Z0-9\.]+)\s*(\d{6})([CP])(\d{8})$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
         /// Class contains future ticker properties returned by ParseFutureTicker()
@@ -43,7 +44,7 @@ namespace QuantConnect
             /// <summary>
             /// Underlying name
             /// </summary>
-            public string Underlying { get; set;  }
+            public string Underlying { get; set; }
 
             /// <summary>
             /// Short expiration year
@@ -166,8 +167,7 @@ namespace QuantConnect
 
             if (!SymbolPropertiesDatabase.FromDataFolder().TryGetMarket(underlying, SecurityType.Future, out var market))
             {
-                Log.Debug($@"SymbolRepresentation.ParseFutureSymbol(): {
-                    Messages.SymbolRepresentation.FailedToGetMarketForTickerAndUnderlying(ticker, underlying)}");
+                Log.Debug($@"SymbolRepresentation.ParseFutureSymbol(): {Messages.SymbolRepresentation.FailedToGetMarketForTickerAndUnderlying(ticker, underlying)}");
                 return null;
             }
 
@@ -268,7 +268,8 @@ namespace QuantConnect
                 month = expirationMonth.Month;
                 year = doubleDigitsYear ? expirationMonth.Year % 100 : expirationMonth.Year % 10;
             }
-            else {
+            else
+            {
                 // These futures expire in the month before or in the contract month
                 month += contractMonthDelta;
 
@@ -373,37 +374,107 @@ namespace QuantConnect
         /// <returns>Symbol object for the specified OSI option ticker string</returns>
         public static Symbol ParseOptionTickerOSI(string ticker, SecurityType securityType, OptionStyle optionStyle, string market)
         {
-            var match = _optionTickerRegex.Match(ticker);
-            if (!match.Success)
+            if (!TryDecomposeOptionTickerOSI(ticker, out var optionTicker, out var expiry, out var right, out var strike))
             {
-                throw new FormatException($"Invalid ticker format {ticker}");
+                throw new FormatException(Messages.SymbolRepresentation.InvalidOSITickerFormat(ticker));
             }
 
-            var optionTicker = match.Groups[1].Value;
-            var expiration = DateTime.ParseExact(match.Groups[2].Value, DateFormat.SixCharacter, null);
-            OptionRight right = match.Groups[3].Value.ToUpper() == "C" ? OptionRight.Call : OptionRight.Put;
-            var strike = decimal.Parse(match.Groups[4].Value) / 1000m;
-
             SecurityIdentifier underlyingSid;
+            string underlyingSymbolValue;
             if (securityType == SecurityType.Option)
             {
                 underlyingSid = SecurityIdentifier.GenerateEquity(optionTicker, market);
-                // Reset optionTicker for default handling
+                // We have the mapped symbol in the OSI ticker
+                underlyingSymbolValue = optionTicker;
+                // let it fallback to it's default handling, which include mapping
                 optionTicker = null;
             }
             else if (securityType == SecurityType.IndexOption)
             {
                 underlyingSid = SecurityIdentifier.GenerateIndex(OptionSymbol.MapToUnderlying(optionTicker, securityType), market);
+                underlyingSymbolValue = underlyingSid.Symbol;
+            }
+            else if (securityType == SecurityType.FutureOption)
+            {
+                var futureTickerInfo = ParseFutureTicker(optionTicker);
+                underlyingSid = SecurityIdentifier.GenerateFuture(expiry, futureTickerInfo.Underlying, market);
+                underlyingSymbolValue = underlyingSid.Symbol;
             }
             else
             {
                 throw new NotImplementedException($"ParseOptionTickerOSI(): {Messages.SymbolRepresentation.SecurityTypeNotImplemented(securityType)}");
             }
-
-            var sid = SecurityIdentifier.GenerateOption(expiration, underlyingSid, optionTicker, market, strike, right, optionStyle);
-            return new Symbol(sid, ticker, new Symbol(underlyingSid, underlyingSid.Symbol));
+            var sid = SecurityIdentifier.GenerateOption(expiry, underlyingSid, optionTicker, market, strike, right, optionStyle);
+            return new Symbol(sid, ticker, new Symbol(underlyingSid, underlyingSymbolValue));
         }
-    
+
+        /// <summary>
+        /// Tries to decompose the specified OSI options ticker into its components
+        /// </summary>
+        /// <param name="ticker">The OSI option ticker</param>
+        /// <param name="optionTicker">The option ticker extracted from the OSI symbol</param>
+        /// <param name="expiry">The option contract expiry date</param>
+        /// <param name="right">The option contract right</param>
+        /// <param name="strike">The option contract strike price</param>
+        /// <returns>True if the OSI symbol was in the right format and could be decomposed</returns>
+        public static bool TryDecomposeOptionTickerOSI(string ticker, out string optionTicker, out DateTime expiry,
+            out OptionRight right, out decimal strike)
+        {
+            optionTicker = null;
+            expiry = default;
+            right = OptionRight.Call;
+            strike = decimal.Zero;
+
+            if (string.IsNullOrEmpty(ticker))
+            {
+                return false;
+            }
+
+            var match = _optionTickerRegex.Match(ticker);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            optionTicker = match.Groups[1].Value;
+            expiry = DateTime.ParseExact(match.Groups[2].Value, DateFormat.SixCharacter, null);
+            right = match.Groups[3].Value.ToUpperInvariant() == "C" ? OptionRight.Call : OptionRight.Put;
+            strike = Parse.Decimal(match.Groups[4].Value) / 1000m;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Tries to decompose the specified OSI options ticker into its components
+        /// </summary>
+        /// <param name="ticker">The OSI option ticker</param>
+        /// <param name="securityType">The option security type</param>
+        /// <param name="optionTicker">The option ticker extracted from the OSI symbol</param>
+        /// <param name="underlyingTicker">The underlying ticker</param>
+        /// <param name="expiry">The option contract expiry date</param>
+        /// <param name="right">The option contract right</param>
+        /// <param name="strike">The option contract strike price</param>
+        /// <returns>True if the OSI symbol was in the right format and could be decomposed</returns>
+        public static bool TryDecomposeOptionTickerOSI(string ticker, SecurityType securityType, out string optionTicker,
+            out string underlyingTicker, out DateTime expiry, out OptionRight right, out decimal strike)
+        {
+            optionTicker = null;
+            underlyingTicker = null;
+            expiry = default;
+            right = OptionRight.Call;
+            strike = decimal.Zero;
+
+            if (!securityType.IsOption())
+            {
+                return false;
+            }
+
+            var result = TryDecomposeOptionTickerOSI(ticker, out optionTicker, out expiry, out right, out strike);
+            underlyingTicker = securityType != SecurityType.IndexOption ? optionTicker : IndexOptionSymbol.MapToUnderlying(optionTicker);
+
+            return result;
+        }
+
         /// <summary>
         /// Function returns option ticker from IQFeed option ticker
         /// For example CSCO1220V19 Cisco October Put at 19.00 Expiring on 10/20/12
@@ -413,9 +484,10 @@ namespace QuantConnect
         /// <returns>The option ticker</returns>
         public static string GenerateOptionTicker(Symbol symbol)
         {
-            var letter = _optionSymbology.Where(x => x.Value.Item2 == symbol.ID.OptionRight && x.Value.Item1 == symbol.ID.Date.Month).Select(x => x.Key).Single();
+            var symbolTicker = symbol.SecurityType == SecurityType.IndexOption ? symbol.Canonical.Value.Replace("?", string.Empty) : SecurityIdentifier.Ticker(symbol.Underlying, symbol.ID.Date);
+            var letter = OptionCodeLookup.Where(x => x.Value.Item2 == symbol.ID.OptionRight && x.Value.Item1 == symbol.ID.Date.Month).Select(x => x.Key).Single();
             var twoYearDigit = symbol.ID.Date.ToString("yy");
-            return $"{SecurityIdentifier.Ticker(symbol.Underlying, symbol.ID.Date)}{twoYearDigit}{symbol.ID.Date.Day:00}{letter}{symbol.ID.StrikePrice.ToStringInvariant()}";
+            return $"{symbolTicker}{twoYearDigit}{symbol.ID.Date.Day:00}{letter}{symbol.ID.StrikePrice.ToStringInvariant()}";
         }
 
         /// <summary>
@@ -426,13 +498,13 @@ namespace QuantConnect
         /// <returns>Results containing 1) underlying name, 2) option right, 3) option strike 4) expiration date</returns>
         public static OptionTickerProperties ParseOptionTickerIQFeed(string ticker)
         {
-            var letterRange = _optionSymbology.Keys
+            var letterRange = OptionCodeLookup.Keys
                             .Select(x => x[0])
                             .ToArray();
             var optionTypeDelimiter = ticker.LastIndexOfAny(letterRange);
             var strikePriceString = ticker.Substring(optionTypeDelimiter + 1, ticker.Length - optionTypeDelimiter - 1);
 
-            var lookupResult = _optionSymbology[ticker[optionTypeDelimiter].ToStringInvariant()];
+            var lookupResult = OptionCodeLookup[ticker[optionTypeDelimiter].ToStringInvariant()];
             var month = lookupResult.Item1;
             var optionRight = lookupResult.Item2;
 
@@ -473,23 +545,30 @@ namespace QuantConnect
         }
 
 
-        // This table describes IQFeed option symbology
-        private static Dictionary<string, Tuple<int, OptionRight>> _optionSymbology = new Dictionary<string, Tuple<int, OptionRight>>
-                        {
-                            { "A", Tuple.Create(1, OptionRight.Call) }, { "M", Tuple.Create(1, OptionRight.Put) },
-                            { "B", Tuple.Create(2, OptionRight.Call) }, { "N", Tuple.Create(2, OptionRight.Put) },
-                            { "C", Tuple.Create(3, OptionRight.Call) }, { "O", Tuple.Create(3, OptionRight.Put) },
-                            { "D", Tuple.Create(4, OptionRight.Call) }, { "P", Tuple.Create(4, OptionRight.Put) },
-                            { "E", Tuple.Create(5, OptionRight.Call) }, { "Q", Tuple.Create(5, OptionRight.Put) },
-                            { "F", Tuple.Create(6, OptionRight.Call) }, { "R", Tuple.Create(6, OptionRight.Put) },
-                            { "G", Tuple.Create(7, OptionRight.Call) }, { "S", Tuple.Create(7, OptionRight.Put) },
-                            { "H", Tuple.Create(8, OptionRight.Call) }, { "T", Tuple.Create(8, OptionRight.Put) },
-                            { "I", Tuple.Create(9, OptionRight.Call) }, { "U", Tuple.Create(9, OptionRight.Put) },
-                            { "J", Tuple.Create(10, OptionRight.Call) }, { "V", Tuple.Create(10, OptionRight.Put) },
-                            { "K", Tuple.Create(11, OptionRight.Call) }, { "W", Tuple.Create(11, OptionRight.Put) },
-                            { "L", Tuple.Create(12, OptionRight.Call) }, { "X", Tuple.Create(12, OptionRight.Put) },
-
-                        };
+        /// <summary>
+        /// A dictionary that maps option symbols to a tuple containing the option series number and the option right (Call or Put).
+        /// The key represents a single character option symbol, and the value contains the series number and the associated option right.
+        /// </summary>
+        /// <remarks>
+        /// The dictionary is designed to map each option symbol (e.g., "A", "M", "B", etc.) to an option series number and 
+        /// the corresponding option right (either a Call or Put). The series number determines the group of options the symbol belongs to,
+        /// and the option right indicates whether the option is a Call (buyer has the right to buy) or Put (buyer has the right to sell).
+        /// </remarks>
+        public static IReadOnlyDictionary<string, Tuple<int, OptionRight>> OptionCodeLookup { get; } = new Dictionary<string, Tuple<int, OptionRight>>
+        {
+            { "A", Tuple.Create(1, OptionRight.Call) }, { "M", Tuple.Create(1, OptionRight.Put) },
+            { "B", Tuple.Create(2, OptionRight.Call) }, { "N", Tuple.Create(2, OptionRight.Put) },
+            { "C", Tuple.Create(3, OptionRight.Call) }, { "O", Tuple.Create(3, OptionRight.Put) },
+            { "D", Tuple.Create(4, OptionRight.Call) }, { "P", Tuple.Create(4, OptionRight.Put) },
+            { "E", Tuple.Create(5, OptionRight.Call) }, { "Q", Tuple.Create(5, OptionRight.Put) },
+            { "F", Tuple.Create(6, OptionRight.Call) }, { "R", Tuple.Create(6, OptionRight.Put) },
+            { "G", Tuple.Create(7, OptionRight.Call) }, { "S", Tuple.Create(7, OptionRight.Put) },
+            { "H", Tuple.Create(8, OptionRight.Call) }, { "T", Tuple.Create(8, OptionRight.Put) },
+            { "I", Tuple.Create(9, OptionRight.Call) }, { "U", Tuple.Create(9, OptionRight.Put) },
+            { "J", Tuple.Create(10, OptionRight.Call) }, { "V", Tuple.Create(10, OptionRight.Put) },
+            { "K", Tuple.Create(11, OptionRight.Call) }, { "W", Tuple.Create(11, OptionRight.Put) },
+            { "L", Tuple.Create(12, OptionRight.Call) }, { "X", Tuple.Create(12, OptionRight.Put) },
+        };
 
 
         /// <summary>
@@ -517,6 +596,36 @@ namespace QuantConnect
         public static IReadOnlyDictionary<int, string> FuturesMonthLookup { get; } = FuturesMonthCodeLookup.ToDictionary(kv => kv.Value, kv => kv.Key);
 
         /// <summary>
+        /// Converts a user-provided ticker string into a <see cref="Symbol"/> object,
+        /// handling different security types such as stocks, options, futures, and index options.
+        /// </summary>
+        /// <param name="ticker">The ticker string input by the user.</param>
+        /// <param name="securityType">The type of security (e.g., Equity, Option, Future).</param>
+        /// <param name="market">The market or exchange the symbol belongs to (optional for some types).</param>
+        /// <returns>A <see cref="Symbol"/> representing the specified security.</returns>
+        public static Symbol ParseTickerFromUserInput(string ticker, SecurityType securityType, string market)
+        {
+            if (securityType == SecurityType.Option)
+            {
+                return ParseOptionTickerOSI(ticker);
+            }
+            else if (securityType == SecurityType.Future)
+            {
+                return ParseFutureSymbol(ticker);
+            }
+            else if (securityType == SecurityType.FutureOption)
+            {
+                return ParseFutureOptionSymbol(ticker);
+            }
+            else if (securityType == SecurityType.IndexOption)
+            {
+                return ParseOptionTickerOSI(ticker, securityType);
+            }
+
+            return Symbol.Create(ticker, securityType, market);
+        }
+
+        /// <summary>
         /// Get the expiration year from short year (two-digit integer).
         /// Examples: NQZ23 and NQZ3 for Dec 2023
         /// </summary>
@@ -525,10 +634,10 @@ namespace QuantConnect
         /// <remarks>Tickers from live trading may not provide the four-digit year.</remarks>
         private static int GetExpirationYear(int? futureYear, FutureTickerProperties parsed)
         {
-            if(futureYear.HasValue)
+            if (futureYear.HasValue)
             {
                 var referenceYear = 1900 + parsed.ExpirationYearShort;
-                while(referenceYear < futureYear.Value)
+                while (referenceYear < futureYear.Value)
                 {
                     referenceYear += 10;
                 }
@@ -543,7 +652,7 @@ namespace QuantConnect
                 return 2000 + parsed.ExpirationYearShort;
             }
 
-            var baseYear = ((int)Math.Round(currentYear / 10.0)) * 10 + parsed.ExpirationYearShort;
+            var baseYear = ((int)Math.Floor(currentYear / 10.0)) * 10 + parsed.ExpirationYearShort;
             while (baseYear < currentYear)
             {
                 baseYear += 10;

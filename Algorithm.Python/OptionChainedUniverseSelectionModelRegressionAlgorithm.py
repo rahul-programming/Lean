@@ -23,20 +23,20 @@ class OptionChainedUniverseSelectionModelRegressionAlgorithm(QCAlgorithm):
         self.set_start_date(2014, 6, 6)
         self.set_end_date(2014, 6, 6)
         self.set_cash(100000)
-        
+
         universe = self.add_universe("my-minute-universe-name", lambda time: [ "AAPL", "TWX" ])
         self.add_universe_selection(
             OptionChainedUniverseSelectionModel(
                 universe,
-                lambda u: (u.strikes(-2, +2)
+                lambda u: (u.standards_only().strikes(-2, +2)
                                      # Expiration method accepts TimeSpan objects or integer for days.
                                      # The following statements yield the same filtering criteria
                                      .expiration(0, 180))
             )
         )
-        
+
     def on_data(self, slice):
-        if self.portfolio.invested or not (self.is_market_open("AAPL") and self.is_market_open("AAPL")): return
+        if self.portfolio.invested or not (self.is_market_open("AAPL") and self.is_market_open("TWX")): return
         values = list(map(lambda x: x.value, filter(lambda x: x.key == "?AAPL" or x.key == "?TWX",  slice.option_chains)))
         for chain in values:
             # we sort the contracts to find at the money (ATM) contract with farthest expiration

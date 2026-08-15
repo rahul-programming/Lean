@@ -43,8 +43,8 @@ namespace QuantConnect.Algorithm.CSharp
 
             var aapl = QuantConnect.Symbol.Create("AAPL", SecurityType.Equity, Market.USA);
 
-            _contract = OptionChainProvider.GetOptionContractList(aapl, Time)
-                .OrderBy(symbol => symbol.ID.StrikePrice)
+            _contract = OptionChain(aapl)
+                .OrderBy(x => x.ID.StrikePrice)
                 .FirstOrDefault(optionContract => optionContract.ID.OptionRight == OptionRight.Call
                     && optionContract.ID.OptionStyle == OptionStyle.American);
             AddOptionContract(_contract);
@@ -116,12 +116,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 3814;
+        public long DataPoints => 3818;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -157,9 +157,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "0"},
             {"Total Fees", "$2.00"},
             {"Estimated Strategy Capacity", "$5000000.00"},
-            {"Lowest Capacity Asset", "AAPL VXBK4R62CXGM|AAPL R735QTJ8XC9X"},
+            {"Lowest Capacity Asset", "AAPL VXBK4R62H7S6|AAPL R735QTJ8XC9X"},
             {"Portfolio Turnover", "22.70%"},
-            {"OrderListHash", "29fd1b75f6db05dd823a6db7e8bd90a9"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "71511e4929377cd55fbf5e7e9555c248"}
         };
     }
 }

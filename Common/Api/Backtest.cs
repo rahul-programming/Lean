@@ -18,6 +18,7 @@ using Newtonsoft.Json;
 using QuantConnect.Statistics;
 using System.Collections.Generic;
 using QuantConnect.Optimizer.Parameters;
+using QuantConnect.Util;
 
 namespace QuantConnect.Api
 {
@@ -53,6 +54,16 @@ namespace QuantConnect.Api
     public class BasicBacktest : RestResponse
     {
         /// <summary>
+        /// Backtest error message
+        /// </summary>
+        public string Error { get; set; }
+
+        /// <summary>
+        /// Backtest error stacktrace
+        /// </summary>
+        public string Stacktrace { get; set; }
+
+        /// <summary>
         /// Assigned backtest Id
         /// </summary>
         public string BacktestId { get; set; }
@@ -70,6 +81,7 @@ namespace QuantConnect.Api
         /// <summary>
         /// Backtest creation date and time
         /// </summary>
+        [JsonConverter(typeof(DateTimeJsonConverter), DateFormat.ISOShort, DateFormat.UI)]
         public DateTime Created { get; set; }
 
         /// <summary>
@@ -103,7 +115,6 @@ namespace QuantConnect.Api
     /// </summary>
     public class Backtest : BasicBacktest
     {
-
         /// <summary>
         /// Note on the backtest attached by the user
         /// </summary>
@@ -115,19 +126,9 @@ namespace QuantConnect.Api
         public bool Completed { get; set; }
 
         /// <summary>
-        /// Backtest error message
-        /// </summary>
-        public string Error { get; set; }
-
-        /// <summary>
-        /// Backtest error stacktrace
-        /// </summary>
-        public string StackTrace { get; set; }
-
-        /// <summary>
         /// Organization ID
         /// </summary>
-        public int OrganizationId { get; set; }
+        public string OrganizationId { get; set; }
 
         /// <summary>
         /// Rolling window detailed statistics.
@@ -186,6 +187,11 @@ namespace QuantConnect.Api
         public string NodeName { get; set; }
 
         /// <summary>
+        /// The associated project id
+        /// </summary>
+        public int ProjectId { get; set; }
+
+        /// <summary>
         /// End date of out of sample data
         /// </summary>
         public DateTime? OutOfSampleMaxEndDate { get; set; }
@@ -194,6 +200,12 @@ namespace QuantConnect.Api
         /// Number of days of out of sample days
         /// </summary>
         public int? OutOfSampleDays { get; set; }
+
+        /// <summary>
+        /// Backtest analysis results.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public IReadOnlyList<Analysis> Analysis { get; set; }
     }
 
     /// <summary>
@@ -227,7 +239,7 @@ namespace QuantConnect.Api
         public decimal? Drawdown { get; set; }
 
         /// <summary>
-        /// The ratio of the number of losing trades to the total number of trades
+        /// The ratio of the number of trades with zero or negative profit loss to the total number of trades
         /// </summary>
         public decimal? LossRate { get; set; }
 
@@ -267,7 +279,7 @@ namespace QuantConnect.Api
         public decimal? TreynorRatio { get; set; }
 
         /// <summary>
-        /// The ratio of the number of winning trades to the total number of trades
+        /// The ratio of the number of trades with positive profit loss to the total number of trades
         /// </summary>
         public decimal? WinRate { get; set; }
 

@@ -20,10 +20,12 @@ using System.Linq;
 using NUnit.Framework;
 using QuantConnect.Data;
 using QuantConnect.Util;
+using QuantConnect.Logging;
 using QuantConnect.Interfaces;
 using QuantConnect.Data.Market;
 using System.Collections.Generic;
 using QuantConnect.DownloaderDataProvider.Launcher;
+using QuantConnect.DownloaderDataProvider.Launcher.Models;
 
 namespace QuantConnect.Tests.DownloaderDataProvider
 {
@@ -59,6 +61,7 @@ namespace QuantConnect.Tests.DownloaderDataProvider
             var tradeDate = new DateTime(2024, 01, 10);
             var endDate = new DateTime(2024, 02, 02);
             var symbol = Symbol.CreateCanonicalOption(Symbols.AAPL);
+
             var downloadDataConfig = new DataDownloadConfig(tickType, SecurityType.Option, resolution, startDate, endDate, Market.USA, new List<Symbol>() { symbol });
 
             var optionContracts = GenerateOptionContracts(Symbols.AAPL, 100, new DateTime(2024, 03, 16), expiryAddDay: 30);
@@ -107,6 +110,34 @@ namespace QuantConnect.Tests.DownloaderDataProvider
                 strikePrice *= strikeMultiplier;
             }
             return contracts;
+        }
+
+        [Test]
+        public void RunDownloadLogsWarningWhenDownloaderReturnsEmptyData()
+        {
+            var startDate = new DateTime(2015, 7, 20);
+            var endDate = new DateTime(2016, 1, 1);
+            var symbol = Symbols.SPY;
+
+            var downloadDataConfig = new DataDownloadConfig(TickType.Trade, SecurityType.Equity, Resolution.Daily, startDate, endDate, Market.USA, new List<Symbol> { symbol });
+
+            var logHandler = new QueueLogHandler();
+            var originalHandler = Log.LogHandler;
+            Log.LogHandler = logHandler;
+
+            try
+            {
+                var downloader = new DataDownloaderTest(Enumerable.Empty<BaseData>());
+                Program.RunDownload(downloader, downloadDataConfig, _dataDirectory, _cacheProvider);
+
+                var logs = logHandler.Logs.Select(x => x.Message).ToList();
+                Assert.IsTrue(logs.Any(msg => msg.Contains("No data found", StringComparison.OrdinalIgnoreCase)),
+                    $"Expected a warning log when the downloader returns no data, but got: {string.Join(", ", logs)}");
+            }
+            finally
+            {
+                Log.LogHandler = originalHandler;
+            }
         }
 
         private class DataDownloaderTest : IDataDownloader

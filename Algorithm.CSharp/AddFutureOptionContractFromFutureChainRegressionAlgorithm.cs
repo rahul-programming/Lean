@@ -49,7 +49,7 @@ namespace QuantConnect.Algorithm.CSharp
                 {
                     foreach (var contract in futuresContracts)
                     {
-                        var option_contract_symbols = OptionChainProvider.GetOptionContractList(contract.Symbol, Time).ToList();
+                        var option_contract_symbols = OptionChain(contract.Symbol).ToList();
                         if(option_contract_symbols.Count == 0)
                         {
                             continue;
@@ -93,12 +93,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 12169;
+        public long DataPoints => 9922;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public int AlgorithmHistoryDataPoints => 2;
 
         /// <summary>
         /// Final status of the algorithm
@@ -113,7 +113,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "20"},
             {"Average Win", "0%"},
             {"Average Loss", "0%"},
-            {"Compounding Annual Return", "386219349.202%"},
+            {"Compounding Annual Return", "88398927.578%"},
             {"Drawdown", "5.200%"},
             {"Expectancy", "0"},
             {"Start Equity", "100000"},
@@ -134,9 +134,10 @@ namespace QuantConnect.Algorithm.CSharp
             {"Treynor Ratio", "68696.045"},
             {"Total Fees", "$35.70"},
             {"Estimated Strategy Capacity", "$2600000.00"},
-            {"Lowest Capacity Asset", "ES 31C3JQS9D84PW|ES XCZJLC9NOB29"},
+            {"Lowest Capacity Asset", "ES 31C3JQS9DCF1G|ES XCZJLC9NOB29"},
             {"Portfolio Turnover", "495.15%"},
-            {"OrderListHash", "85257286f088992d599c1ad0799a6237"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "af830085995d0b8fa0d33a6e80dd1241"}
         };
     }
 }

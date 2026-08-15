@@ -29,10 +29,22 @@ namespace QuantConnect.Tests.Indicators
         protected override IndicatorBase<TradeBar> CreateIndicator()
         {
             var mcClellanOscillator = new McClellanOscillator(19, 39);
-            mcClellanOscillator.Add(Symbols.MSFT);
-            mcClellanOscillator.Add(Symbols.GOOG);
-            mcClellanOscillator.Add(Symbols.AAPL);
+            if (SymbolList.Count > 2)
+            {
+                SymbolList.Take(3).ToList().ForEach(mcClellanOscillator.Add);
+            }
+            else
+            {
+                mcClellanOscillator.Add(Symbols.MSFT);
+                mcClellanOscillator.Add(Symbols.GOOG);
+                mcClellanOscillator.Add(Symbols.AAPL);
+            }
             return mcClellanOscillator;
+        }
+
+        protected override List<Symbol> GetSymbols()
+        {
+            return [Symbols.SPY, Symbols.AAPL, Symbols.IBM];
         }
 
         [Test]
@@ -139,10 +151,7 @@ namespace QuantConnect.Tests.Indicators
                 Add(symbol);
             }
 
-            // Set to the first EMA values to account for past A/D Difference values that we don't have access
             Reset();
-            EMAFast.Update(new DateTime(2022, 6, 30), -209.85m);
-            EMASlow.Update(new DateTime(2022, 6, 30), -186.41m);
         }
 
         public void TestUpdate(IndicatorDataPoint input)
@@ -177,6 +186,10 @@ namespace QuantConnect.Tests.Indicators
             {
                 _symbols[symbol] = 0m;
             }
+
+            // Set to the first EMA values to account for past A/D Difference values that we don't have access
+            EMAFast.Update(new DateTime(2022, 6, 30), -209.85m);
+            EMASlow.Update(new DateTime(2022, 6, 30), -186.41m);
         }
     }
 }

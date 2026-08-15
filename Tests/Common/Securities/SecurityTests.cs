@@ -405,6 +405,15 @@ namespace QuantConnect.Tests.Common.Securities
         }
 
         [Test]
+        public void SetCustomProperty()
+        {
+            var security = GetSecurity();
+            security.Set("Bool", true);
+            Assert.AreEqual(true, security.TryGet<bool>("Bool", out var boolValue));
+            Assert.AreEqual(true, boolValue);
+        }
+
+        [Test]
         public void SetsAndGetsDynamicCustomPropertiesUsingGenericInterface()
         {
             var security = GetSecurity();
@@ -449,6 +458,22 @@ namespace QuantConnect.Tests.Common.Securities
 
             Assert.Throws<InvalidCastException>(() => security.TryGet<SimpleMovingAverage>("EMA", out _));
             Assert.Throws<InvalidCastException>(() => security.Get<SimpleMovingAverage>("EMA"));
+        }
+
+        [Test]
+        public void GettingPythonCustomPropertyWithIncompatibleTypeThrowsDescriptiveError()
+        {
+            var security = GetSecurity();
+            using (Py.GIL())
+            {
+                security.Set("StringProperty", "a string value".ToPython());
+
+                var exception = Assert.Throws<InvalidCastException>(() => security.Get<decimal>("StringProperty"));
+                Assert.That(exception.Message, Does.Contain("'StringProperty'"));
+                Assert.That(exception.Message, Does.Contain("'str'"));
+                Assert.That(exception.Message, Does.Contain(nameof(Decimal)));
+                Assert.That(exception.InnerException, Is.TypeOf<InvalidCastException>());
+            }
         }
 
         [Test]

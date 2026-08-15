@@ -26,7 +26,10 @@ using QuantConnect.Securities;
 using QuantConnect.Orders.Fees;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using QuantConnect.Api;
+using QuantConnect.Brokerages.Authentication;
 using QuantConnect.Brokerages.CrossZero;
+using QuantConnect.Util;
 
 namespace QuantConnect.Brokerages
 {
@@ -99,6 +102,11 @@ namespace QuantConnect.Brokerages
         /// Returns true if we're currently connected to the broker
         /// </summary>
         public abstract bool IsConnected { get; }
+
+        /// <summary>
+        /// Enables or disables concurrent processing of messages to and from the brokerage.
+        /// </summary>
+        public virtual bool ConcurrencyEnabled { get; set; }
 
         /// <summary>
         /// Creates a new Brokerage instance with the specified name
@@ -321,6 +329,25 @@ namespace QuantConnect.Brokerages
         }
 
         /// <summary>
+        /// Creates a <see cref="LeanOAuthTokenHandler"/> and automatically wires it so that
+        /// authentication failures trigger a brokerage error message, causing Lean to shut down gracefully.
+        /// </summary>
+        /// <param name="apiClient">The API client used to communicate with the Lean platform.</param>
+        /// <param name="request">The request model used to generate the access token.</param>
+        /// <param name="tokenLifetime">
+        /// The expected lifetime of a fetched token. A 1-minute safety buffer is applied before expiry.
+        /// Must be provided explicitly — each brokerage has a different token lifetime.
+        /// </param>
+        /// <returns>A configured <see cref="LeanOAuthTokenHandler"/> instance.</returns>
+        protected LeanOAuthTokenHandler<T> CreateOAuthTokenHandler<T>(ApiConnection apiClient, OAuthTokenRequest request, TimeSpan tokenLifetime)
+            where T : LeanTokenCredentials
+        {
+            var handler = new LeanOAuthTokenHandler<T>(apiClient, request, tokenLifetime);
+            handler.AuthenticationFailed += (_, ex) => OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, "OAuthenticationFailed", ex.Message));
+            return handler;
+        }
+
+        /// <summary>
         /// Helper method that will try to get the live holdings from the provided brokerage data collection else will default to the algorithm state
         /// </summary>
         /// <remarks>Holdings will removed from the provided collection on the first call, since this method is expected to be called only
@@ -334,6 +361,11 @@ namespace QuantConnect.Brokerages
 
             if (brokerageData != null && brokerageData.Remove("live-holdings", out var value) && !string.IsNullOrEmpty(value))
             {
+                if (Log.DebuggingEnabled)
+                {
+                    Log.Debug($"Brokerage.GetAccountHoldings(): raw value: {value}");
+                }
+
                 // remove the key, we really only want to return the cached value on the first request
                 var result = JsonConvert.DeserializeObject<List<Holding>>(value);
                 if (result == null)
@@ -425,12 +457,7 @@ namespace QuantConnect.Brokerages
         /// <returns>The order position</returns>
         protected static OrderPosition GetOrderPosition(OrderDirection orderDirection, decimal holdingsQuantity)
         {
-            return orderDirection switch
-            {
-                OrderDirection.Buy => holdingsQuantity >= 0 ? OrderPosition.BuyToOpen : OrderPosition.BuyToClose,
-                OrderDirection.Sell => holdingsQuantity <= 0 ? OrderPosition.SellToOpen : OrderPosition.SellToClose,
-                _ => throw new ArgumentOutOfRangeException(nameof(orderDirection), orderDirection, "Invalid order direction")
-            };
+            return BrokerageExtensions.GetOrderPosition(orderDirection, holdingsQuantity);
         }
 
         #region IBrokerageCashSynchronizer implementation
@@ -504,6 +531,11 @@ namespace QuantConnect.Brokerages
                 {
                     if (!algorithm.Portfolio.CashBook.ContainsKey(balance.Currency))
                     {
+                        if (!CashAmountUtil.ShouldAddCashBalance(balance, algorithm.AccountCurrency))
+                        {
+                            Log.Trace($"Brokerage.PerformCashSync(): Skipping {balance.Currency} cash because quantity is zero");
+                            continue;
+                        }
                         Log.Trace($"Brokerage.PerformCashSync(): Unexpected cash found {balance.Currency} {balance.Amount}", true);
                         algorithm.Portfolio.SetCash(balance.Currency, balance.Amount, 0);
                     }
@@ -521,7 +553,7 @@ namespace QuantConnect.Brokerages
                     {
                         // compare in account currency
                         var delta = cash.Amount - balanceCash.Amount;
-                        if (Math.Abs(algorithm.Portfolio.CashBook.ConvertToAccountCurrency(delta, cash.Symbol)) > totalPorfolioValueThreshold)
+                        if (cash.ConversionRate == 0 || Math.Abs(algorithm.Portfolio.CashBook.ConvertToAccountCurrency(delta, cash.Symbol)) > totalPorfolioValueThreshold)
                         {
                             // log the delta between
                             Log.Trace($"Brokerage.PerformCashSync(): {balanceCash.Currency} Delta: {delta:0.00}", true);
@@ -586,8 +618,8 @@ namespace QuantConnect.Brokerages
         /// A thread-safe dictionary that maps brokerage order IDs to their corresponding Order objects.
         /// </summary>
         /// <remarks>
-        /// This ConcurrentDictionary is used to maintain a mapping between Zero Cross brokerage order IDs and Lean Order objects. 
-        /// The dictionary is protected and read-only, ensuring that it can only be modified by the class that declares it and cannot 
+        /// This ConcurrentDictionary is used to maintain a mapping between Zero Cross brokerage order IDs and Lean Order objects.
+        /// The dictionary is protected and read-only, ensuring that it can only be modified by the class that declares it and cannot
         /// be assigned a new instance after initialization.
         /// </remarks>
         protected ConcurrentDictionary<string, Order> LeanOrderByZeroCrossBrokerageOrderId { get; } = new();
@@ -598,7 +630,7 @@ namespace QuantConnect.Brokerages
         /// </summary>
         /// <param name="crossZeroOrderRequest">The request object containing details of the cross zero order to be placed.</param>
         /// <param name="isPlaceOrderWithLeanEvent">
-        /// A boolean indicating whether the order should be placed with triggering a Lean event. 
+        /// A boolean indicating whether the order should be placed with triggering a Lean event.
         /// Default is <c>true</c>, meaning Lean events will be triggered.
         /// </param>
         /// <returns>
@@ -613,8 +645,8 @@ namespace QuantConnect.Brokerages
         }
 
         /// <summary>
-        /// Attempts to place an order that may cross the zero position. 
-        /// If the order needs to be split into two parts due to crossing zero, 
+        /// Attempts to place an order that may cross the zero position.
+        /// If the order needs to be split into two parts due to crossing zero,
         /// this method handles the split and placement accordingly.
         /// </summary>
         /// <param name="order">The order to be placed. Must not be <c>null</c>.</param>
@@ -647,7 +679,7 @@ namespace QuantConnect.Brokerages
 
                 // we actually can't place this order until the closingOrder is filled
                 // create another order for the rest, but we'll convert the order type to not be a stop
-                // but a market or a limit order                
+                // but a market or a limit order
                 var secondOrderPartRequest = new CrossZeroSecondOrderRequest(order, order.Type, secondOrderQuantity, 0m,
                     GetOrderPosition(order.Direction, 0m), firstOrderPartRequest);
 
@@ -751,7 +783,7 @@ namespace QuantConnect.Brokerages
                         case OrderStatus.Invalid:
                             LeanOrderByZeroCrossBrokerageOrderId.TryRemove(brokerageOrderId, out var _);
                             break;
-                    };
+                    }
                     return true;
                 }
                 // Return false if the brokerage order ID does not correspond to a cross-zero order
@@ -782,7 +814,7 @@ namespace QuantConnect.Brokerages
                         return false;
                     default:
                         return false;
-                };
+                }
 
                 OnOrderEvent(orderEvent);
 

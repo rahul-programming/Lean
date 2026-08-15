@@ -96,7 +96,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             protected override OptionFilterUniverse Filter(OptionFilterUniverse filter)
             {
-                return filter.BackMonth().Contracts(filter.Take(15));
+                return filter.StandardsOnly().BackMonth().Contracts(contracts => contracts.Take(15));
             }
         }
 
@@ -113,7 +113,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 112808126;
+        public long DataPoints => 2155694;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -156,6 +156,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", ""},
             {"Portfolio Turnover", "0%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "d41d8cd98f00b204e9800998ecf8427e"}
         };
     }

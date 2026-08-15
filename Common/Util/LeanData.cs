@@ -21,7 +21,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using NodaTime;
 using QuantConnect.Data;
-using QuantConnect.Data.Auxiliary;
 using QuantConnect.Data.Consolidators;
 using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
@@ -42,7 +41,7 @@ namespace QuantConnect.Util
         private static readonly HashSet<Type> _strictDailyEndTimesDataTypes = new()
         {
             // the underlying could yield auxiliary data which we don't want to change
-            typeof(TradeBar), typeof(QuoteBar), typeof(ZipEntryName), typeof(BaseDataCollection)
+            typeof(TradeBar), typeof(QuoteBar), typeof(BaseDataCollection), typeof(OpenInterest)
         };
 
         /// <summary>
@@ -577,8 +576,8 @@ namespace QuantConnect.Util
                     // For futures options, we use the canonical option ticker plus the underlying's expiry
                     // since it can differ from the underlying's ticker. We differ from normal futures
                     // because the option chain can be extraordinarily large compared to equity option chains.
-                    var futureOptionPath = Path.Combine(symbol.ID.Symbol, symbol.Underlying.ID.Date.ToStringInvariant(DateFormat.EightCharacter))
-                        .ToLowerInvariant();
+                    var futureOptionPath = Path.Combine(symbol.ID.Symbol.ToLowerInvariant(),
+                         FuturesExpiryUtilityFunctions.GetFutureContractMonth(symbol).ToStringInvariant(DateFormat.YearMonth));
 
                     return Path.Combine(directory, futureOptionPath);
 
@@ -624,6 +623,44 @@ namespace QuantConnect.Util
             }
 
             return Path.Combine(directory, GenerateZipFileName(symbol, securityType, date, resolution));
+        }
+
+        /// <summary>
+        /// Generates the relative directory to the universe files for the specified symbol
+        /// </summary>
+        public static string GenerateRelativeUniversesDirectory(Symbol symbol)
+        {
+            var path = Path.Combine(symbol.SecurityType.SecurityTypeToLower(), symbol.ID.Market, "universes");
+            switch (symbol.SecurityType)
+            {
+                case SecurityType.Option:
+                    path = Path.Combine(path, symbol.Underlying.Value.ToLowerInvariant());
+                    break;
+
+                case SecurityType.Future:
+                case SecurityType.IndexOption:
+                    path = Path.Combine(path, symbol.ID.Symbol.ToLowerInvariant());
+                    break;
+
+                case SecurityType.FutureOption:
+                    path = Path.Combine(path,
+                        symbol.ID.Symbol.ToLowerInvariant(),
+                        FuturesExpiryUtilityFunctions.GetFutureContractMonth(symbol).ToStringInvariant(DateFormat.YearMonth));
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException($"Unsupported security type {symbol.SecurityType}");
+            }
+
+            return path;
+        }
+
+        /// <summary>
+        /// Generates the directory to the universe files for the specified symbol
+        /// </summary>
+        public static string GenerateUniversesDirectory(string dataDirectory, Symbol symbol)
+        {
+            return Path.Combine(dataDirectory, GenerateRelativeUniversesDirectory(symbol));
         }
 
         /// <summary>
@@ -716,13 +753,9 @@ namespace QuantConnect.Util
                     }
 
                     string expirationTag;
-                    var expiryDate = symbol.ID.Date;
-                    if (expiryDate != SecurityIdentifier.DefaultDate)
+                    if (symbol.ID.Date != SecurityIdentifier.DefaultDate)
                     {
-                        var monthsToAdd = FuturesExpiryUtilityFunctions.GetDeltaBetweenContractMonthAndContractExpiry(symbol.ID.Symbol, expiryDate.Date);
-                        var contractYearMonth = expiryDate.AddMonths(monthsToAdd).ToStringInvariant(DateFormat.YearMonth);
-
-                        expirationTag = $"{contractYearMonth}_{expiryDate.ToStringInvariant(DateFormat.EightCharacter)}";
+                        expirationTag = FuturesExpiryUtilityFunctions.GetFutureContractMonth(symbol).ToStringInvariant(DateFormat.YearMonth);
                     }
                     else
                     {
@@ -831,7 +864,8 @@ namespace QuantConnect.Util
 
             if (tickType == null)
             {
-                if (securityType == SecurityType.Forex || securityType == SecurityType.Cfd) {
+                if (securityType == SecurityType.Forex || securityType == SecurityType.Cfd)
+                {
                     tickType = TickType.Quote;
                 }
                 else
@@ -892,20 +926,17 @@ namespace QuantConnect.Util
                     }
 
                 case SecurityType.Future:
+                    string expiryYearMonth;
                     if (isHourlyOrDaily)
                     {
-                        var expiryYearMonth = Parse.DateTimeExact(parts[2], DateFormat.YearMonth);
-                        var futureExpiryFunc = FuturesExpiryFunctions.FuturesExpiryFunction(symbol);
-                        var futureExpiry = futureExpiryFunc(expiryYearMonth);
-                        return Symbol.CreateFuture(parts[0], symbol.ID.Market, futureExpiry);
+                        expiryYearMonth = parts[2];
                     }
                     else
                     {
-                        var expiryYearMonth = Parse.DateTimeExact(parts[4], DateFormat.YearMonth);
-                        var futureExpiryFunc = FuturesExpiryFunctions.FuturesExpiryFunction(symbol);
-                        var futureExpiry = futureExpiryFunc(expiryYearMonth);
-                        return Symbol.CreateFuture(parts[1], symbol.ID.Market, futureExpiry);
+                        expiryYearMonth = parts[4];
                     }
+                    var futureExpiry = FuturesExpiryUtilityFunctions.GetFutureExpirationFromContractMonth(symbol, Parse.DateTimeExact(expiryYearMonth, DateFormat.YearMonth));
+                    return Symbol.CreateFuture(symbol.ID.Symbol, symbol.ID.Market, futureExpiry);
 
                 default:
                     throw new NotImplementedException(Invariant(
@@ -915,11 +946,11 @@ namespace QuantConnect.Util
         }
 
         /// <summary>
-        /// Scale and convert the resulting number to deci-cents int.
+        /// Scales the value by 10_000 and returns a normalized string.
         /// </summary>
-        private static long Scale(decimal value)
+        private static string Scale(decimal value)
         {
-            return (long)(value * 10000);
+            return Extensions.NormalizeToStr(value * 10_000m);
         }
 
         /// <summary>
@@ -989,7 +1020,7 @@ namespace QuantConnect.Util
             {
                 return TickType.OpenInterest;
             }
-            if (type == typeof(ZipEntryName))
+            if (type.IsAssignableTo(typeof(BaseChainUniverseData)))
             {
                 return TickType.Quote;
             }
@@ -1071,7 +1102,7 @@ namespace QuantConnect.Util
 
             try
             {
-                if (!TryParsePath(filePath, out symbol, out date, out resolution))
+                if (!TryParsePath(filePath, out symbol, out date, out resolution, out var isUniverses))
                 {
                     return false;
                 }
@@ -1091,7 +1122,7 @@ namespace QuantConnect.Util
                     tickType = (TickType)Enum.Parse(typeof(TickType), fileName.Split('_')[tickTypePosition], true);
                 }
 
-                dataType = GetDataType(resolution, tickType);
+                dataType = isUniverses ? typeof(OptionUniverse) : GetDataType(resolution, tickType);
                 return true;
             }
             catch (Exception ex)
@@ -1110,9 +1141,23 @@ namespace QuantConnect.Util
         /// <param name="resolution">The resolution of the symbol as parsed from the filePath</param>
         public static bool TryParsePath(string fileName, out Symbol symbol, out DateTime date, out Resolution resolution)
         {
+            return TryParsePath(fileName, out symbol, out date, out resolution, out _);
+        }
+
+        /// <summary>
+        /// Parses file name into a <see cref="Security"/> and DateTime
+        /// </summary>
+        /// <param name="fileName">File name to be parsed</param>
+        /// <param name="symbol">The symbol as parsed from the fileName</param>
+        /// <param name="date">Date of data in the file path. Only returned if the resolution is lower than Hourly</param>
+        /// <param name="resolution">The resolution of the symbol as parsed from the filePath</param>
+        /// <param name="isUniverses">Outputs whether the file path represents a universe data file.</param>
+        public static bool TryParsePath(string fileName, out Symbol symbol, out DateTime date, out Resolution resolution, out bool isUniverses)
+        {
             symbol = null;
             resolution = Resolution.Daily;
             date = default(DateTime);
+            isUniverses = default;
 
             try
             {
@@ -1134,7 +1179,7 @@ namespace QuantConnect.Util
 
                 var market = Market.USA;
                 string ticker;
-                var isUniverses = false;
+
                 if (!Enum.TryParse(info[startIndex + 2], true, out resolution))
                 {
                     resolution = Resolution.Daily;
@@ -1150,7 +1195,9 @@ namespace QuantConnect.Util
                             // only acept a failure to parse resolution if we are facing a universes path
                             return false;
                         }
-                        securityType = SecurityType.Base;
+
+                        (symbol, date) = ParseUniversePath(info, securityType);
+                        return true;
                     }
                 }
 
@@ -1197,34 +1244,16 @@ namespace QuantConnect.Util
                     }
                 }
 
-                // Future Options cannot use Symbol.Create
                 if (securityType == SecurityType.FutureOption)
                 {
-                    // Future options have underlying FutureExpiry date as the parent dir for the zips, we need this for our underlying
-                    var underlyingFutureExpiryDate = Parse.DateTimeExact(info[startIndex + 4].Substring(0, 8), DateFormat.EightCharacter);
-
-                    var underlyingTicker = OptionSymbol.MapToUnderlying(ticker, securityType);
-                    // Create our underlying future and then the Canonical option for this future
-                    var underlyingFuture = Symbol.CreateFuture(underlyingTicker, market, underlyingFutureExpiryDate);
-                    symbol = Symbol.CreateCanonicalOption(underlyingFuture);
-                }
-                else if (securityType == SecurityType.IndexOption)
-                {
-                    var underlyingTicker = OptionSymbol.MapToUnderlying(ticker, securityType);
-                    // Create our underlying index and then the Canonical option
-                    var underlyingIndex = Symbol.Create(underlyingTicker, SecurityType.Index, market);
-                    symbol = Symbol.CreateCanonicalOption(underlyingIndex, ticker, market, null);
+                    // Future options have underlying future contract month date as the parent dir for the zips, we need this for our underlying
+                    var futureContractMonth = Parse.DateTimeExact(info[startIndex + 4].Substring(0, 6), DateFormat.YearMonth);
+                    symbol = CreateSymbol(ticker, securityType, market, null, futureContractMonth);
                 }
                 else
                 {
-                    Type dataType = null;
-                    if (isUniverses && info[startIndex + 3].Equals("etf", StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        dataType = typeof(ETFConstituentUniverse);
-                    }
-                    symbol = CreateSymbol(ticker, securityType, market, dataType, date);
+                    symbol = CreateSymbol(ticker, securityType, market, null, date);
                 }
-
             }
             catch (Exception ex)
             {
@@ -1233,6 +1262,62 @@ namespace QuantConnect.Util
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Parses the universe file path and extracts the corresponding symbol and file date.
+        /// </summary>
+        /// <param name="filePathParts">
+        /// A list of strings representing the file path segments. The expected structure is:
+        /// <para>General format: ["data", SecurityType, Market, "universes", ...]</para>
+        /// <para>Examples:</para>
+        /// <list type="bullet">
+        /// <item><description>Equity: <c>data/equity/usa/universes/etf/spy/20201130.csv</c></description></item>
+        /// <item><description>Option: <c>data/option/usa/universes/aapl/20241112.csv</c></description></item>
+        /// <item><description>Future: <c>data/future/cme/universes/es/20130710.csv</c></description></item>
+        /// <item><description>Future Option: <c>data/futureoption/cme/universes/20120401/20111230.csv</c></description></item>
+        /// </list>
+        /// </param>
+        /// <param name="securityType">The type of security for which the symbol is being created.</param>
+        /// <returns>A tuple containing the parsed <see cref="Symbol"/> and the universe processing file date.</returns>
+        /// <exception cref="ArgumentException">Thrown if the file path does not contain 'universes'.</exception>
+        /// <exception cref="NotSupportedException">Thrown if the security type is not supported.</exception>
+        private static (Symbol symbol, DateTime processingDate) ParseUniversePath(IReadOnlyList<string> filePathParts, SecurityType securityType)
+        {
+            if (!filePathParts.Contains("universes", StringComparer.InvariantCultureIgnoreCase))
+            {
+                throw new ArgumentException($"LeanData.{nameof(ParseUniversePath)}:The file path must contain a 'universes' part, but it was not found.");
+            }
+
+            var symbol = default(Symbol);
+            var market = filePathParts[2];
+            var ticker = filePathParts[^2];
+            var universeFileDate = DateTime.ParseExact(filePathParts[^1], DateFormat.EightCharacter, DateTimeFormatInfo.InvariantInfo, DateTimeStyles.None);
+            switch (securityType)
+            {
+                case SecurityType.Equity:
+                    securityType = SecurityType.Base;
+                    var dataType = filePathParts.Contains("etf", StringComparer.InvariantCultureIgnoreCase) ? typeof(ETFConstituentUniverse) : default;
+                    symbol = CreateSymbol(ticker, securityType, market, dataType, universeFileDate);
+                    break;
+                case SecurityType.Option:
+                    symbol = CreateSymbol(ticker, securityType, market, null, universeFileDate);
+                    break;
+                case SecurityType.IndexOption:
+                    symbol = CreateSymbol(ticker, securityType, market, null, default);
+                    break;
+                case SecurityType.FutureOption:
+                    symbol = CreateSymbol(filePathParts[^3], securityType, market, null, Parse.DateTimeExact(filePathParts[^2], DateFormat.YearMonth));
+                    break;
+                case SecurityType.Future:
+                    var mapUnderlyingTicker = OptionSymbol.MapToUnderlying(ticker, securityType);
+                    symbol = Symbol.CreateFuture(mapUnderlyingTicker, market, SecurityIdentifier.DefaultDate);
+                    break;
+                default:
+                    throw new NotSupportedException($"LeanData.{nameof(ParseUniversePath)}:The security type '{securityType}' is not supported for data universe files.");
+            }
+
+            return (symbol, universeFileDate);
         }
 
         /// <summary>
@@ -1259,6 +1344,21 @@ namespace QuantConnect.Util
             {
                 var symbol = new Symbol(SecurityIdentifier.GenerateEquity(ticker, market, mappingResolveDate: mappingResolveDate), ticker);
                 return securityType == SecurityType.Option ? Symbol.CreateCanonicalOption(symbol) : symbol;
+            }
+            else if (securityType == SecurityType.FutureOption)
+            {
+                var underlyingTicker = OptionSymbol.MapToUnderlying(ticker, securityType);
+                // Create our underlying future and then the Canonical option for this future
+                var underlyingExpiry = FuturesExpiryUtilityFunctions.GetFutureExpirationFromContractMonth(underlyingTicker, market, mappingResolveDate);
+                var underlyingFuture = Symbol.CreateFuture(underlyingTicker, market, underlyingExpiry);
+                return Symbol.CreateCanonicalOption(underlyingFuture);
+            }
+            else if (securityType == SecurityType.IndexOption)
+            {
+                var underlyingTicker = OptionSymbol.MapToUnderlying(ticker, securityType);
+                // Create our underlying index and then the Canonical option
+                var underlyingIndex = Symbol.Create(underlyingTicker, SecurityType.Index, market);
+                return Symbol.CreateCanonicalOption(underlyingIndex, ticker, market, null);
             }
             else
             {
@@ -1332,6 +1432,24 @@ namespace QuantConnect.Util
         }
 
         /// <summary>
+        /// Helper method to calculate the start time of a consolidator bar given a period, and anchor start time and the current data time
+        /// </summary>
+        public static DateTime GetConsolidatorStartTime(TimeSpan period, TimeSpan startTime, DateTime time)
+        {
+            var referenceStart = time.Date + startTime;
+            if (period >= TimeSpan.FromDays(7))
+            {
+                // anchor to start of the month
+                referenceStart = new DateTime(time.Year, time.Month, 1) + startTime;
+            }
+
+            var difference = time - referenceStart;
+
+            var intervalsPassed = Math.Floor(difference.TotalSeconds / period.TotalSeconds);
+            return referenceStart + TimeSpan.FromSeconds(intervalsPassed * period.TotalSeconds);
+        }
+
+        /// <summary>
         /// Helper method to return the start time and period of a bar the given point time should be part of
         /// </summary>
         /// <param name="exchangeTimeZoneDate">The point in time we want to get the bar information about</param>
@@ -1352,22 +1470,37 @@ namespace QuantConnect.Util
         /// <returns>The calendar information that holds a start time and a period</returns>
         public static CalendarInfo GetDailyCalendar(DateTime exchangeTimeZoneDate, SecurityExchangeHours exchangeHours, bool extendedMarketHours)
         {
-            var startTime = exchangeHours.GetPreviousMarketOpen(exchangeTimeZoneDate, extendedMarketHours);
-            var endTime = exchangeHours.GetNextMarketClose(startTime, extendedMarketHours);
-
-            // Let's not consider regular market gaps like when market closes at 16:15 and opens again at 16:30
-            while (true)
-            {
-                var potentialEnd = exchangeHours.GetNextMarketClose(endTime, extendedMarketHours);
-                if (potentialEnd.Date != endTime.Date)
-                {
-                    break;
-                }
-                endTime = potentialEnd;
-            }
-
+            var startTime = exchangeHours.GetFirstDailyMarketOpen(exchangeTimeZoneDate, extendedMarketHours);
+            var endTime = exchangeHours.GetLastDailyMarketClose(startTime, extendedMarketHours);
             var period = endTime - startTime;
             return new CalendarInfo(startTime, period);
+        }
+
+        /// <summary>
+        /// Helper method to return the intraday bar start time and period, anchored to the market open, without extending past the close
+        /// </summary>
+        /// <param name="exchangeTimeZoneDate">The point in time we want to get the bar information about</param>
+        /// <param name="period">The intraday consolidation period</param>
+        /// <param name="exchangeHours">The associated exchange hours</param>
+        /// <param name="extendedMarketHours">True if extended market hours should be taken into consideration</param>
+        /// <returns>The calendar information that holds a start time and a period</returns>
+        public static CalendarInfo GetIntradayCalendar(DateTime exchangeTimeZoneDate, TimeSpan period, SecurityExchangeHours exchangeHours, bool extendedMarketHours)
+        {
+            var marketOpen = exchangeHours.IsOpen(exchangeTimeZoneDate, extendedMarketHours)
+                ? exchangeHours.GetPreviousMarketOpen(exchangeTimeZoneDate.AddTicks(1), extendedMarketHours)
+                : exchangeHours.GetPreviousMarketOpen(exchangeTimeZoneDate, extendedMarketHours);
+
+            var intervalsPassed = (long)Math.Floor((exchangeTimeZoneDate - marketOpen).Ticks / (double)period.Ticks);
+            var startTime = marketOpen.AddTicks(intervalsPassed * period.Ticks);
+
+            // keep the last bar from extending past the market close
+            var endTime = startTime + period;
+            var marketClose = exchangeHours.GetNextMarketClose(marketOpen, extendedMarketHours);
+            if (endTime > marketClose)
+            {
+                endTime = marketClose;
+            }
+            return new CalendarInfo(startTime, endTime - startTime);
         }
 
         /// <summary>
@@ -1381,7 +1514,7 @@ namespace QuantConnect.Util
                 return nextMidnight;
             }
 
-            var nextMarketClose = exchangeHours.GetNextMarketClose(exchangeTimeZoneDate, extendedMarketHours: false);
+            var nextMarketClose = exchangeHours.GetLastDailyMarketClose(exchangeTimeZoneDate, extendedMarketHours: false);
             if (nextMarketClose > nextMidnight)
             {
                 // if exchangeTimeZoneDate is after the previous close, the next close might be tomorrow
@@ -1425,9 +1558,10 @@ namespace QuantConnect.Util
         /// <summary>
         /// Helper method to determine if we should use strict end time
         /// </summary>
-        public static bool UseDailyStrictEndTimes(IAlgorithmSettings settings, BaseDataRequest request, Symbol symbol, TimeSpan increment)
+        public static bool UseDailyStrictEndTimes(IAlgorithmSettings settings, BaseDataRequest request, Symbol symbol, TimeSpan increment,
+            SecurityExchangeHours exchangeHours = null)
         {
-            return UseDailyStrictEndTimes(settings, request.DataType, symbol, increment, request.ExchangeHours);
+            return UseDailyStrictEndTimes(settings, request.DataType, symbol, increment, exchangeHours ?? request.ExchangeHours);
         }
 
         /// <summary>
@@ -1435,7 +1569,15 @@ namespace QuantConnect.Util
         /// </summary>
         public static bool UseDailyStrictEndTimes(IAlgorithmSettings settings, Type dataType, Symbol symbol, TimeSpan increment, SecurityExchangeHours exchangeHours)
         {
-            return UseDailyStrictEndTimes(dataType) && UseStrictEndTime(settings.DailyPreciseEndTime, symbol, increment, exchangeHours);
+            return UseDailyStrictEndTimes(settings.DailyPreciseEndTime, dataType, symbol, increment, exchangeHours);
+        }
+
+        /// <summary>
+        /// Helper method to determine if we should use strict end time
+        /// </summary>
+        public static bool UseDailyStrictEndTimes(bool dailyStrictEndTimeEnabled, Type dataType, Symbol symbol, TimeSpan increment, SecurityExchangeHours exchangeHours)
+        {
+            return UseDailyStrictEndTimes(dataType) && UseStrictEndTime(dailyStrictEndTimeEnabled, symbol, increment, exchangeHours);
         }
 
         /// <summary>
@@ -1466,17 +1608,8 @@ namespace QuantConnect.Util
                 return false;
             }
 
-            var isZipEntryName = dataType == typeof(ZipEntryName);
-            if (isZipEntryName && baseData.Time.Hour == 0)
-            {
-                // zip entry names are emitted point in time for a date, see BaseDataSubscriptionEnumeratorFactory. When setting the strict end times
-                // we will move it to the previous day daily times, because daily market data on disk end time is midnight next day, so here we add 1 day
-                baseData.Time += Time.OneDay;
-                baseData.EndTime += Time.OneDay;
-            }
-
             var dailyCalendar = GetDailyCalendar(baseData.EndTime, exchange, extendedMarketHours: false);
-            if (!isZipEntryName && dailyCalendar.End < baseData.Time)
+            if (dailyCalendar.End < baseData.Time)
             {
                 // this data point we were given is probably from extended market hours which we don't support for daily backtesting data
                 return false;
@@ -1493,24 +1626,34 @@ namespace QuantConnect.Util
         /// <param name="fileName">File name extracted</param>
         /// <param name="entryName">Entry name extracted</param>
         public static void ParseKey(string key, out string fileName, out string entryName)
-         {
-             // Default scenario, no entryName included in key
-             entryName = null; // default to all entries
-             fileName = key;
+        {
+            // Default scenario, no entryName included in key
+            entryName = null; // default to all entries
+            fileName = key;
 
-             if (key == null)
-             {
-                 return;
-             }
+            if (key == null)
+            {
+                return;
+            }
 
-             // Try extracting an entry name; Anything after a # sign
-             var hashIndex = key.LastIndexOf("#", StringComparison.Ordinal);
-             if (hashIndex != -1)
-             {
-                 entryName = key.Substring(hashIndex + 1);
-                 fileName = key.Substring(0, hashIndex);
-             }
-         }
+            // Try extracting an entry name; Anything after a # sign
+            var hashIndex = key.LastIndexOf("#", StringComparison.Ordinal);
+            if (hashIndex != -1)
+            {
+                entryName = key.Substring(hashIndex + 1);
+                fileName = key.Substring(0, hashIndex);
+            }
+        }
+
+        /// <summary>
+        /// Helper method to determine if the specified data type supports extended market hours
+        /// </summary>
+        /// <param name="dataType">The data type</param>
+        /// <returns>Whether the specified data type supports extended market hours</returns>
+        public static bool SupportsExtendedMarketHours(Type dataType)
+        {
+            return !dataType.IsAssignableTo(typeof(BaseChainUniverseData));
+        }
 
         /// <summary>
         /// Helper method to aggregate ticks or bars into lower frequency resolutions

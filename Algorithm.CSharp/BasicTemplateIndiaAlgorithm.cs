@@ -113,7 +113,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "-0.008%"},
             {"Sharpe Ratio", "-497.389"},
             {"Sortino Ratio", "-73.22"},
-            {"Probabilistic Sharpe Ratio", "0.001%"},
+            {"Probabilistic Sharpe Ratio", "0.794%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
@@ -128,7 +128,8 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "₹61000000000.00"},
             {"Lowest Capacity Asset", "YESBANK UL"},
             {"Portfolio Turnover", "0.00%"},
-            {"OrderListHash", "7a0257f08e3bb9143b825e07ab47fea0"}
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "06f782c83dd633dac6f228b91273ba26"}
         };
     }
 }

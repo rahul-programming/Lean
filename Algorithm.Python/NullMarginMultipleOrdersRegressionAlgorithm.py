@@ -32,13 +32,13 @@ class NullMarginMultipleOrdersRegressionAlgorithm(QCAlgorithm):
         option = self.add_option(equity.symbol, fill_forward=True)
         self._option_symbol = option.symbol
 
-        option.set_filter(lambda u: u.strikes(-2, +2).expiration(0, 180))
+        option.set_filter(lambda u: u.standards_only().strikes(-2, +2).expiration(0, 180))
 
     def on_data(self, data: Slice):
         if not self.portfolio.invested:
             if self.is_market_open(self._option_symbol):
-                chain = data.option_chains.get_value(self._option_symbol)
-                if chain is not None:
+                chain = data.option_chains.get(self._option_symbol)
+                if chain:
                     call_contracts = [contract for contract in chain if contract.right == OptionRight.CALL]
                     call_contracts.sort(key=lambda x: (x.expiry, 1/ x.strike), reverse=True)
 

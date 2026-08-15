@@ -77,7 +77,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 120;
+        public int AlgorithmHistoryDataPoints => 15;
 
         /// <summary>
         /// Final status of the algorithm
@@ -115,6 +115,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "€85000.00"},
             {"Lowest Capacity Asset", "BTCEUR 2XR"},
             {"Portfolio Turnover", "107.64%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "6819dc936b86af6e4b89b6017b7d5284"}
         };
     }

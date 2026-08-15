@@ -322,6 +322,18 @@ namespace QuantConnect.Securities
             /// </summary>
             /// <returns>The symbol</returns>
             public const string MicroBTC = "MBT";
+
+            /// <summary>
+            /// BTIC on Micro Ether Futures
+            /// </summary>
+            /// <returns>The symbol</returns>
+            public const string BTICMicroEther = "MRB";
+
+            /// <summary>
+            /// BTIC on Micro Bitcoin Futures
+            /// </summary>
+            /// <returns>The symbol</returns>
+            public const string BTICMicroBTC = "MIB";
         }
 
         /// <summary>
@@ -599,12 +611,6 @@ namespace QuantConnect.Securities
             /// </summary>
             /// <returns>The symbol</returns>
             public const string GulfCoastCBOBGasolineA2PlattsVsRBOBGasoline = "CRB";
-
-            /// <summary>
-            /// Clearbrook Bakken Sweet Crude Oil Monthly Index (Net Energy) Futures
-            /// </summary>
-            /// <returns>The symbol</returns>
-            public const string ClearbrookBakkenSweetCrudeOilMonthlyIndexNetEnergy = "CSW";
 
             /// <summary>
             /// WTI Financial Futures
@@ -1080,12 +1086,6 @@ namespace QuantConnect.Securities
             public const string GulfCoastCBOBGasolineA2PlattsVsRBOBGasoline = "CRB";
 
             /// <summary>
-            /// Clearbrook Bakken Sweet Crude Oil Monthly Index (Net Energy) Futures
-            /// </summary>
-            /// <returns>The symbol</returns>
-            public const string ClearbrookBakkenSweetCrudeOilMonthlyIndexNetEnergy = "CSW";
-
-            /// <summary>
             /// WTI Financial Futures
             /// </summary>
             /// <returns>The symbol</returns>
@@ -1389,6 +1389,12 @@ namespace QuantConnect.Securities
             public const string VIX = "VX";
 
             /// <summary>
+            /// VIX Mini Futures
+            /// </summary>
+            /// <returns>The symbol</returns>
+            public const string VIXMini = "VXM";
+
+            /// <summary>
             /// E-mini Russell 2000 Futures
             /// </summary>
             /// <returns>The symbol</returns>
@@ -1544,6 +1550,18 @@ namespace QuantConnect.Securities
             public const string BseSensex = "SENSEX";
 
             /// <summary>
+            /// Hang Seng Index
+            /// </summary>
+            /// <returns>The symbol</returns>
+            public const string HangSeng = "HSI";
+
+            /// <summary>
+            /// KOSPI 200 Index Futures
+            /// </summary>
+            /// <returns>The symbol</returns>
+            public const string Kospi200 = "KM";
+
+            /// <summary>
             /// Micro E-mini S&amp;P 500 Index Futures
             /// </summary>
             /// <returns>The symbol</returns>
@@ -1596,6 +1614,47 @@ namespace QuantConnect.Securities
             /// MSCI USA Index Futures
             /// </summary>
             public const string MSCIUsaIndex = "MXUS";
+
+            /// <summary>
+            /// Euro Stoxx 50 Index Futures
+            /// </summary>
+            /// <returns>The symbol</returns>
+            public const string EuroStoxx50 = "FESX";
+
+            /// <summary>
+            /// DAX Futures
+            /// </summary>
+            public const string DAX = "FDAX";
+
+            /// <summary>
+            /// DAX50 Futures
+            /// </summary>
+            public const string DAX50 = "FSDX";
+
+            /// <summary>
+            /// Div DAX futureFutures
+            /// </summary>
+            public const string DivDAX = "FDIV";
+
+            /// <summary>
+            /// Micro DAX Futures
+            /// </summary>
+            public const string DAXMicro = "FDXS";
+
+            /// <summary>
+            /// Mini DAX Futures
+            /// </summary>
+            public const string DAXMini = "FDXM";
+
+            /// <summary>
+            /// Mini MDAX Futures
+            /// </summary>
+            public const string MDAXMini = "FSMX";
+
+            /// <summary>
+            /// TecDAX Futures
+            /// </summary>
+            public const string TecDAX = "FTDX";
         }
 
         /// <summary>
@@ -1777,48 +1836,6 @@ namespace QuantConnect.Securities
             /// </summary>
             /// <returns>The symbol</returns>
             public const string Cocoa = "CC";
-        }
-
-        /// <summary>
-        /// Dairy group
-        /// </summary>
-        public static class Dairy
-        {
-            /// <summary>
-            /// Cash-settled Butter Futures
-            /// </summary>
-            /// <returns>The symbol</returns>
-            public const string CashSettledButter = "CB";
-
-            /// <summary>
-            /// Cash-settled Cheese Futures
-            /// </summary>
-            /// <returns>The symbol</returns>
-            public const string CashSettledCheese = "CSC";
-
-            /// <summary>
-            /// Class III Milk Futures
-            /// </summary>
-            /// <returns>The symbol</returns>
-            public const string ClassIIIMilk = "DC";
-
-            /// <summary>
-            /// Dry Whey Futures
-            /// </summary>
-            /// <returns>The symbol</returns>
-            public const string DryWhey = "DY";
-
-            /// <summary>
-            /// Class IV Milk Futures
-            /// </summary>
-            /// <returns>The symbol</returns>
-            public const string ClassIVMilk = "GDK";
-
-            /// <summary>
-            /// Non-fat Dry Milk Futures
-            /// </summary>
-            /// <returns>The symbol</returns>
-            public const string NonfatDryMilk = "GNF";
         }
     }
 }

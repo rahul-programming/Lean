@@ -35,6 +35,7 @@ namespace QuantConnect.Tests.Common.Data
             var increment = TimeSpan.FromSeconds(seconds);
             using var consolidator = new TestConsolidator();
             using var wrapper = new ConsolidatorWrapper(consolidator, increment, timeKeeper, localtime);
+            wrapper.AdvanceScanTime();
 
             Assert.AreEqual(time.Add(increment < Time.OneSecond ? Time.OneSecond : increment), wrapper.UtcScanTime);
         }
@@ -49,6 +50,7 @@ namespace QuantConnect.Tests.Common.Data
             var increment = TimeSpan.FromSeconds(seconds);
             using var consolidator = new TestConsolidator();
             using var wrapper = new ConsolidatorWrapper(consolidator, increment, timeKeeper, localtime);
+            wrapper.AdvanceScanTime();
 
             var expected = time.Add(increment < Time.OneSecond ? Time.OneSecond : increment);
             Assert.AreEqual(expected, wrapper.UtcScanTime);
@@ -68,6 +70,7 @@ namespace QuantConnect.Tests.Common.Data
             var increment = TimeSpan.FromSeconds(seconds);
             using var consolidator = new TestConsolidator();
             using var wrapper = new ConsolidatorWrapper(consolidator, increment, timeKeeper, localtime);
+            wrapper.AdvanceScanTime();
 
             var expected = time.Add(increment < Time.OneSecond ? Time.OneSecond : increment);
             Assert.AreEqual(expected, wrapper.UtcScanTime);
@@ -109,6 +112,7 @@ namespace QuantConnect.Tests.Common.Data
             var increment = Time.OneHour;
             using var consolidator = new TestConsolidator();
             using var wrapper = new ConsolidatorWrapper(consolidator, increment, timeKeeper, localtime);
+            wrapper.AdvanceScanTime();
 
             var expected = time.Add(Time.OneHour);
             Assert.AreEqual(expected, wrapper.UtcScanTime);
@@ -149,6 +153,7 @@ namespace QuantConnect.Tests.Common.Data
             var increment = Time.OneHour;
             using var consolidator = new TestConsolidator();
             using var wrapper = new ConsolidatorWrapper(consolidator, increment, timeKeeper, localtime);
+            wrapper.AdvanceScanTime();
 
             var expected = time.Add(Time.OneHour);
             Assert.AreEqual(expected, wrapper.UtcScanTime);
@@ -161,6 +166,47 @@ namespace QuantConnect.Tests.Common.Data
 
             // after the scan we adjust the expected end time to the working bar
             Assert.AreEqual(consolidator.WorkingData.EndTime.ConvertToUtc(tz), wrapper.UtcScanTime);
+        }
+
+        [Test]
+        public void ConsolidatorScanPriorityComparerComparesByUtcScanDate()
+        {
+            const int id = 1;
+            var utcScanTime = new DateTime(2024, 12, 10, 0, 0, 0, DateTimeKind.Utc);
+
+            var priority1 = new ConsolidatorScanPriority(utcScanTime, id);
+            var priority2 = new ConsolidatorScanPriority(utcScanTime.AddSeconds(1), id + 1);
+            var priority3 = new ConsolidatorScanPriority(utcScanTime, id + 1);
+
+            Assert.AreEqual(-1, ConsolidatorScanPriority.Comparer.Compare(priority1, priority2));
+            Assert.AreEqual(1, ConsolidatorScanPriority.Comparer.Compare(priority2, priority1));
+            Assert.AreEqual(1, ConsolidatorScanPriority.Comparer.Compare(priority3, priority1));
+            Assert.AreEqual(-1, ConsolidatorScanPriority.Comparer.Compare(priority3, priority2));
+            Assert.AreEqual(0, ConsolidatorScanPriority.Comparer.Compare(priority1, priority1));
+        }
+
+        [Test]
+        public void ConsolidatorScanPriorityComparerComparesByIdIfUtcScanTimesAreEqual()
+        {
+            const int id = 1;
+            var utcScanTime = new DateTime(2024, 12, 10, 0, 0, 0, DateTimeKind.Utc);
+
+            var priority1 = new ConsolidatorScanPriority(utcScanTime, id);
+            var priority2 = new ConsolidatorScanPriority(utcScanTime, id + 1);
+
+            Assert.AreEqual(1, ConsolidatorScanPriority.Comparer.Compare(priority2, priority1));
+        }
+
+        [Test]
+        public void ConsolidatorScanPriorityComparerTreatsNullsRight()
+        {
+            const int id = 1;
+            var utcScanTime = new DateTime(2024, 12, 10, 0, 0, 0, DateTimeKind.Utc);
+            var priority1 = new ConsolidatorScanPriority(utcScanTime, id);
+
+            Assert.AreEqual(1, ConsolidatorScanPriority.Comparer.Compare(priority1, null));
+            Assert.AreEqual(-1, ConsolidatorScanPriority.Comparer.Compare(null, priority1));
+            Assert.AreEqual(0, ConsolidatorScanPriority.Comparer.Compare(null, null));
         }
 
         private class TestConsolidator : IDataConsolidator
@@ -191,6 +237,10 @@ namespace QuantConnect.Tests.Common.Data
             {
                 Consolidated = dataPoint;
                 DataConsolidated?.Invoke(this, dataPoint);
+            }
+
+            public void Reset()
+            {
             }
         }
     }

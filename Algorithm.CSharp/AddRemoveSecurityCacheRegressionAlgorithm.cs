@@ -59,7 +59,7 @@ namespace QuantConnect.Algorithm.CSharp
 
                 var ticket = MarketOrder("AIG", 1);
 
-                if (ticket.Status != OrderStatus.Invalid)
+                if (ticket.Status != OrderStatus.Invalid || aig.HasData || aig.Price != 0)
                 {
                     throw new RegressionTestException("Expected order to always be invalid because there is no data yet!");
                 }
@@ -83,7 +83,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 11202;
+        public long DataPoints => 15042;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -111,7 +111,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Net Profit", "1.754%"},
             {"Sharpe Ratio", "11.954"},
             {"Sortino Ratio", "29.606"},
-            {"Probabilistic Sharpe Ratio", "74.160%"},
+            {"Probabilistic Sharpe Ratio", "73.973%"},
             {"Loss Rate", "100%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
@@ -126,6 +126,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$830000.00"},
             {"Lowest Capacity Asset", "SPY R735QTJ8XC9X"},
             {"Portfolio Turnover", "20.49%"},
+            {"Drawdown Recovery", "2"},
             {"OrderListHash", "6ebe462373e2ecc22de8eb2fe114d704"}
         };
     }

@@ -23,7 +23,7 @@ class CustomDataUniverseRegressionAlgorithm(QCAlgorithm):
         self.set_end_date(2014, 3, 31)
 
         self.current_underlying_symbols = set()
-        self.universe_settings.resolution = Resolution.DAILY;
+        self.universe_settings.resolution = Resolution.DAILY
         self.add_universe(CoarseFundamental, "custom-data-universe", self.selection)
 
         self._selection_time = [datetime(2014, 3, 24), datetime(2014, 3, 25), datetime(2014, 3, 26),
@@ -57,7 +57,7 @@ class CustomDataUniverseRegressionAlgorithm(QCAlgorithm):
             if len(custom_data) > 0:
                 for symbol in sorted(self.current_underlying_symbols, key=lambda x: x.id.symbol):
                     if not self.securities[symbol].has_data:
-                        continue;
+                        continue
                     self.set_holdings(symbol, 1 / len(self.current_underlying_symbols))
 
                     if len([x for x in custom_data.keys() if x.underlying == symbol]) == 0:
@@ -67,21 +67,23 @@ class CustomDataUniverseRegressionAlgorithm(QCAlgorithm):
         if len(self._selection_time) != 0:
             raise ValueError(f"Unexpected selection times, missing {len(self._selection_time)}")
 
-    def OnSecuritiesChanged(self, changes):
-        for security in changes.AddedSecurities:
-            if security.symbol.security_type == SecurityType.Base:
+    def on_securities_changed(self, changes):
+        for security in changes.added_securities:
+            if security.symbol.security_type == SecurityType.BASE:
                 continue
-            self.current_underlying_symbols.add(security.Symbol)
+            self.current_underlying_symbols.add(security.symbol)
 
-        for security in changes.RemovedSecurities:
-            if security.symbol.security_type == SecurityType.Base:
+        for security in changes.removed_securities:
+            if (security.symbol.security_type == SecurityType.BASE or
+                # This check can be removed after GH issue #9055 is resolved
+                not security.symbol in self.current_underlying_symbols):
                 continue
-            self.current_underlying_symbols.remove(security.Symbol)
+            self.current_underlying_symbols.remove(security.symbol)
 
 class MyPyCustomData(PythonData):
 
     def get_source(self, config, date, is_live_mode):
-        source = f"{Globals.DataFolder}/equity/usa/daily/{LeanData.generate_zip_file_name(config.symbol, date, config.resolution, config.tick_type)}"
+        source = f"{Globals.data_folder}/equity/usa/daily/{LeanData.generate_zip_file_name(config.symbol, date, config.resolution, config.tick_type)}"
         return SubscriptionDataSource(source)
 
     def reader(self, config, line, date, is_live_mode):

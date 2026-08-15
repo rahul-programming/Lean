@@ -296,7 +296,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public long DataPoints => 1267414;
+        public long DataPoints => 27071;
 
         /// <summary>
         /// Data Points count of the algorithm history
@@ -316,30 +316,31 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Orders", "3"},
             {"Average Win", "0%"},
             {"Average Loss", "-0.40%"},
-            {"Compounding Annual Return", "-22.717%"},
-            {"Drawdown", "0.400%"},
+            {"Compounding Annual Return", "119.386%"},
+            {"Drawdown", "0.800%"},
             {"Expectancy", "-1"},
             {"Start Equity", "100000"},
-            {"End Equity", "99671.06"},
-            {"Net Profit", "-0.329%"},
-            {"Sharpe Ratio", "-14.095"},
+            {"End Equity", "101082.06"},
+            {"Net Profit", "1.082%"},
+            {"Sharpe Ratio", "12.594"},
             {"Sortino Ratio", "0"},
-            {"Probabilistic Sharpe Ratio", "1.216%"},
+            {"Probabilistic Sharpe Ratio", "95.481%"},
             {"Loss Rate", "100%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
-            {"Alpha", "-0.01"},
-            {"Beta", "0.097"},
-            {"Annual Standard Deviation", "0.002"},
-            {"Annual Variance", "0"},
-            {"Information Ratio", "7.39"},
-            {"Tracking Error", "0.015"},
-            {"Treynor Ratio", "-0.234"},
+            {"Alpha", "0.504"},
+            {"Beta", "-6.672"},
+            {"Annual Standard Deviation", "0.111"},
+            {"Annual Variance", "0.012"},
+            {"Information Ratio", "12.001"},
+            {"Tracking Error", "0.127"},
+            {"Treynor Ratio", "-0.209"},
             {"Total Fees", "$2.00"},
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", "GOOCV VP83T1ZUHROL"},
             {"Portfolio Turnover", "17.02%"},
-            {"OrderListHash", "b1e5e72fb766ab894204bc4b1300912b"}
+            {"Drawdown Recovery", "4"},
+            {"OrderListHash", "1be5073f2cf8802ffa163f7dab7d040e"}
         };
     }
 }

@@ -51,7 +51,7 @@ namespace QuantConnect.Algorithm.CSharp
             _spx = AddIndex("SPX", Resolution).Symbol;
 
             // Select an index option expiring ITM, and adds it to the algorithm.
-            _spxOption = AddIndexOptionContract(OptionChainProvider.GetOptionContractList(_spx, Time)
+            _spxOption = AddIndexOptionContract(OptionChain(_spx)
                 .Where(x => x.ID.StrikePrice <= 3200m && x.ID.OptionRight == OptionRight.Call && x.ID.Date.Year == 2021 && x.ID.Date.Month == 1)
                 .OrderByDescending(x => x.ID.StrikePrice)
                 .Take(1)
@@ -170,12 +170,12 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of all timeslices of algorithm
         /// </summary>
-        public virtual long DataPoints => 19908;
+        public virtual long DataPoints => 19909;
 
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 0;
+        public virtual int AlgorithmHistoryDataPoints => 1;
 
         /// <summary>
         /// Final status of the algorithm
@@ -189,31 +189,32 @@ namespace QuantConnect.Algorithm.CSharp
         {
             {"Total Orders", "2"},
             {"Average Win", "0%"},
-            {"Average Loss", "-50.48%"},
-            {"Compounding Annual Return", "243.722%"},
-            {"Drawdown", "2.500%"},
+            {"Average Loss", "-2.49%"},
+            {"Compounding Annual Return", "-30.082%"},
+            {"Drawdown", "2.800%"},
             {"Expectancy", "0"},
             {"Start Equity", "100000"},
-            {"End Equity", "109074"},
-            {"Net Profit", "9.074%"},
-            {"Sharpe Ratio", "4.877"},
-            {"Sortino Ratio", "139.754"},
-            {"Probabilistic Sharpe Ratio", "87.949%"},
+            {"End Equity", "97514"},
+            {"Net Profit", "-2.486%"},
+            {"Sharpe Ratio", "-3.294"},
+            {"Sortino Ratio", "-1.128"},
+            {"Probabilistic Sharpe Ratio", "0.034%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
-            {"Alpha", "1.511"},
-            {"Beta", "-0.204"},
-            {"Annual Standard Deviation", "0.308"},
-            {"Annual Variance", "0.095"},
-            {"Information Ratio", "4.185"},
-            {"Tracking Error", "0.349"},
-            {"Treynor Ratio", "-7.347"},
+            {"Alpha", "-0.227"},
+            {"Beta", "0.044"},
+            {"Annual Standard Deviation", "0.068"},
+            {"Annual Variance", "0.005"},
+            {"Information Ratio", "-1.803"},
+            {"Tracking Error", "0.148"},
+            {"Treynor Ratio", "-5.144"},
             {"Total Fees", "$0.00"},
             {"Estimated Strategy Capacity", "$0"},
-            {"Lowest Capacity Asset", "SPX XL80P3GHDZXQ|SPX 31"},
-            {"Portfolio Turnover", "1.95%"},
-            {"OrderListHash", "20262d435700651ba19602afb7040730"}
+            {"Lowest Capacity Asset", "SPX XL80P3GHIA9A|SPX 31"},
+            {"Portfolio Turnover", "2.44%"},
+            {"Drawdown Recovery", "0"},
+            {"OrderListHash", "a7f4ffe1fd2aa48a17b3ceedd604ca25"}
         };
     }
 }

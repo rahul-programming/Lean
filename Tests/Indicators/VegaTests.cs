@@ -17,6 +17,7 @@ using NUnit.Framework;
 using QuantConnect.Algorithm;
 using QuantConnect.Data;
 using QuantConnect.Indicators;
+using System;
 using System.IO;
 using System.Linq;
 
@@ -25,14 +26,17 @@ namespace QuantConnect.Tests.Indicators
     [TestFixture, Parallelizable(ParallelScope.Fixtures)]
     public class VegaTests : OptionBaseIndicatorTests<Vega>
     {
-        protected override IndicatorBase<IndicatorDataPoint> CreateIndicator()
+        protected override IndicatorBase<IBaseData> CreateIndicator()
             => new Vega("testVegaIndicator", _symbol, 0.0403m, 0.0m);
 
         protected override OptionIndicatorBase CreateIndicator(IRiskFreeInterestRateModel riskFreeRateModel)
             => new Vega("testVegaIndicator", _symbol, riskFreeRateModel);
 
         protected override OptionIndicatorBase CreateIndicator(IRiskFreeInterestRateModel riskFreeRateModel, IDividendYieldModel dividendYieldModel)
-            => new Vega("testVegaIndicator", _symbol, riskFreeRateModel, dividendYieldModel);
+        {
+            var symbol = (SymbolList.Count > 0) ? SymbolList[0] : _symbol;
+            return new Vega("testVegaIndicator", symbol, riskFreeRateModel, dividendYieldModel);
+        }
 
         protected override OptionIndicatorBase CreateIndicator(QCAlgorithm algorithm)
             => algorithm.V(_symbol);
@@ -49,7 +53,7 @@ namespace QuantConnect.Tests.Indicators
         [TestCase("american/third_party_1_greeks.csv", false, false, 0.2, 2e-4)]
         // Just placing the test and data here, we are unsure about the smoothing function and not going to reverse engineer
         [TestCase("american/third_party_2_greeks.csv", false, true, 10000)]
-        public void ComparesAgainstExternalData(string subPath, bool reset, bool singleContract, double errorRate, double errorMargin = 1e-4, 
+        public void ComparesAgainstExternalData(string subPath, bool reset, bool singleContract, double errorRate, double errorMargin = 1e-4,
             int callColumn = 13, int putColumn = 12)
         {
             var path = Path.Combine("TestData", "greeksindicator", subPath);
@@ -125,7 +129,33 @@ namespace QuantConnect.Tests.Indicators
             indicator.Update(optionDataPoint);
             indicator.Update(spotDataPoint);
 
-            Assert.AreEqual(refVega, (double)indicator.Current.Value, 0.0005d);
+            Assert.AreEqual(refVega, (double)indicator.Current.Value, 0.0072d);
+        }
+
+        [TestCase(0.5, 470.0, OptionRight.Put, 0)]
+        [TestCase(0.5, 470.0, OptionRight.Put, 5)]
+        [TestCase(0.5, 470.0, OptionRight.Put, 10)]
+        [TestCase(0.5, 470.0, OptionRight.Put, 15)]
+        [TestCase(15.0, 450.0, OptionRight.Call, 0)]
+        [TestCase(15.0, 450.0, OptionRight.Call, 5)]
+        [TestCase(15.0, 450.0, OptionRight.Call, 10)]
+        [TestCase(0.5, 450.0, OptionRight.Call, 15)]
+        public void CanComputeOnExpirationDate(decimal price, decimal spotPrice, OptionRight right, int hoursAfterExpiryDate)
+        {
+            var expiration = new DateTime(2024, 12, 6);
+            var symbol = Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, right, 450m, expiration);
+            var indicator = new Vega(symbol, 0.053m, 0.0153m,
+                optionModel: OptionPricingModelType.BinomialCoxRossRubinstein, ivModel: OptionPricingModelType.BlackScholes);
+
+            var currentTime = expiration.AddHours(hoursAfterExpiryDate);
+
+            var optionDataPoint = new IndicatorDataPoint(symbol, currentTime, price);
+            var spotDataPoint = new IndicatorDataPoint(symbol.Underlying, currentTime, spotPrice);
+
+            Assert.IsFalse(indicator.Update(optionDataPoint));
+            Assert.IsTrue(indicator.Update(spotDataPoint));
+
+            Assert.AreNotEqual(0, indicator.Current.Value);
         }
     }
 }

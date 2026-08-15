@@ -167,11 +167,7 @@ namespace QuantConnect.Algorithm.CSharp
                 {
                     if (Portfolio.CashBook["LTC"].Amount > 0)
                     {
-                        // The following two statements currently behave differently if we have initial holdings:
-                        // https://github.com/QuantConnect/Lean/issues/1860
-
                         Liquidate("LTCUSD");
-                        // SetHoldings("LTCUSD", 0);
                     }
                 }
             }
@@ -206,7 +202,7 @@ namespace QuantConnect.Algorithm.CSharp
         /// <summary>
         /// Data Points count of the algorithm history
         /// </summary>
-        public int AlgorithmHistoryDataPoints => 240;
+        public int AlgorithmHistoryDataPoints => 35;
 
         /// <summary>
         /// Final status of the algorithm
@@ -224,7 +220,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Compounding Annual Return", "0%"},
             {"Drawdown", "0%"},
             {"Expectancy", "0"},
-            {"Start Equity", "31588.24"},
+            {"Start Equity", "31592.84"},
             {"End Equity", "30866.71"},
             {"Net Profit", "0%"},
             {"Sharpe Ratio", "0"},
@@ -244,6 +240,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Estimated Strategy Capacity", "$0"},
             {"Lowest Capacity Asset", "BTCEUR 2XR"},
             {"Portfolio Turnover", "118.08%"},
+            {"Drawdown Recovery", "0"},
             {"OrderListHash", "26b9a07ace86b6a0e0eb2ff8c168cee0"}
         };
     }
